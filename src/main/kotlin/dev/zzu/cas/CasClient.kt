@@ -7,7 +7,6 @@ import dev.zzu.internal.CasTransport
 import dev.zzu.internal.ZzuRpc
 import dev.zzu.internal.fetch
 import dev.zzu.internal.nativeCasTransport
-import dev.zzu.internal.putValue
 import dev.zzu.nativeConfig
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -127,8 +126,10 @@ public class CasClient internal constructor(
     public suspend fun userInfo(): PersonalInfo = rpc.fetch("user_info")
 
     /**
-     * 获取 [service] 的单点登录跳转地址，需已登录；每次调用都会请求服务端，地址取自重定向响应的
-     * `Location` 头，原样返回。
+     * 获取 [service] 的单点登录跳转地址，需已登录。
+     * 本科教务子应用的地址由 libzzu 在本地使用用户令牌拼接 `idToken` 参数，不发起网络请求；
+     * 其余服务的地址取自服务端重定向响应的 `Location` 头，原样返回。
+     * 返回的 URL 携带登录票据或用户令牌，切勿写入日志。
      *
      * @throws ZzuException.Authentication 未登录时 `kind` 为
      * [AuthenticationErrorKind.NOT_AUTHENTICATED]；令牌不再可用时为
@@ -136,7 +137,7 @@ public class CasClient internal constructor(
      * @throws ZzuException.Decode 响应缺少非空的 `Location` 头时。
      */
     public suspend fun serviceLoginUrl(service: SsoService): String =
-        rpc.fetch("service_login_url", buildJsonObject { putValue("service", service) })
+        rpc.fetch("service_login_url", buildJsonObject { put("service", service.wire) })
 }
 
 /**

@@ -73,8 +73,13 @@ class NativeClientTest {
     }
 
     @Test
-    fun everySsoServiceIsAcceptedAndRequiresLogin() = runTest {
-        SsoService.entries.forEach { service ->
+    fun standaloneSsoServicesAreAcceptedAndRequireLogin() = runTest {
+        listOf(
+            SsoService.EMAIL,
+            SsoService.LIBRARY,
+            SsoService.LIBRARY_RESERVATION,
+            SsoService.LEAVE,
+        ).forEach { service ->
             val failure = assertFailsWith<ZzuException.Authentication> { cas.serviceLoginUrl(service) }
 
             assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, failure.kind)

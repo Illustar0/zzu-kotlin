@@ -105,18 +105,58 @@ class ClientCallsTest {
     }
 
     @Test
-    fun casRequestsServiceLoginUrlsByWireName() = runTest {
+    fun casRequestsStandaloneServiceLoginUrlsByWireName() = runTest {
         val url = "https://mail.test/coremail/main.jsp?sid=test-session"
         val transport = FakeTransport { "\"$url\"" }
         val cas = CasClient(transport)
 
-        val urls = SsoService.entries.map { cas.serviceLoginUrl(it) }
+        val services = listOf(
+            SsoService.EMAIL,
+            SsoService.LIBRARY,
+            SsoService.LIBRARY_RESERVATION,
+            SsoService.LEAVE,
+        )
 
-        assertEquals(List(SsoService.entries.size) { url }, urls)
+        val urls = services.map { cas.serviceLoginUrl(it) }
+
+        assertEquals(List(services.size) { url }, urls)
         assertEquals(setOf("service_login_url"), transport.calls.map { it.first }.toSet())
         assertEquals(
             listOf("email", "library", "library_reservation", "leave"),
             transport.calls.map { it.second!!["service"]!!.jsonPrimitive.content },
+        )
+    }
+
+    @Test
+    fun casRequestsUndergradEasLoginUrlsWithAbiServiceNames() = runTest {
+        val serviceNames: List<Pair<SsoService, String>> = listOf(
+            SsoService.UndergradEas.STUDENT_STATUS to "student_status",
+            SsoService.UndergradEas.PROGRAM_COMPLETION to "program_completion",
+            SsoService.UndergradEas.COURSE_SELECTION to "course_selection",
+            SsoService.UndergradEas.EXAMS to "exams",
+            SsoService.UndergradEas.ACADEMIC_WARNINGS to "academic_warnings",
+            SsoService.UndergradEas.GRADES to "grades",
+            SsoService.UndergradEas.TIMETABLE to "timetable",
+            SsoService.UndergradEas.COURSE_OFFERINGS to "course_offerings",
+            SsoService.UndergradEas.SCHOOL_CALENDAR to "school_calendar",
+            SsoService.UndergradEas.AVAILABLE_CLASSROOMS to "available_classrooms",
+            SsoService.UndergradEas.CLASSROOM_TIMETABLE to "classroom_timetable",
+        )
+        val url = "https://sso.test/login?idToken=a%2Bb%2Fc%3D&next=%2Fhome#complete"
+        val transport = FakeTransport { "\"$url\"" }
+        val cas = CasClient(transport, rpcOver(transport))
+
+        val urls = serviceNames.map { (service, _) -> cas.serviceLoginUrl(service) }
+
+        assertEquals(List(serviceNames.size) { url }, urls)
+        assertEquals(List(serviceNames.size) { "service_login_url" }, transport.calls.map { it.first })
+        assertEquals(
+            serviceNames.map { (_, name) ->
+                buildJsonObject {
+                    put("service", buildJsonObject { put("undergrad_eas", name) })
+                }
+            },
+            transport.calls.map { it.second!! },
         )
     }
 
