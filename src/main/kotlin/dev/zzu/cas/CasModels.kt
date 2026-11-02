@@ -24,6 +24,9 @@ public class SsoService private constructor(internal val wire: JsonElement) {
 
         /** 学生请假系统。 */
         public val LEAVE: SsoService = SsoService(JsonPrimitive("leave"))
+
+        /** 校长信箱。 */
+        public val PRESIDENT_MAILBOX: SsoService = SsoService(JsonPrimitive("president_mailbox"))
     }
 
     /** 携带当前会话令牌直接访问的本科教务子应用。 */

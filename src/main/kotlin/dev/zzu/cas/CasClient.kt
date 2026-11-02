@@ -127,8 +127,8 @@ public class CasClient internal constructor(
 
     /**
      * 获取 [service] 的单点登录跳转地址，需已登录。
-     * 本科教务子应用的地址由 libzzu 在本地使用用户令牌拼接 `idToken` 参数，不发起网络请求；
-     * 其余服务的地址取自服务端重定向响应的 `Location` 头，原样返回。
+     * 校长信箱和本科教务子应用的地址由 libzzu 在本地生成，分别携带用户令牌参数 `token`、`idToken`，
+     * 不发起网络请求；其余服务的地址取自服务端重定向响应的 `Location` 头，原样返回。
      * 返回的 URL 携带登录票据或用户令牌，切勿写入日志。
      *
      * @throws ZzuException.Authentication 未登录时 `kind` 为

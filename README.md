@@ -14,6 +14,7 @@ SDK 无需初始化，`minSdk` 为 26。TLS 证书用系统内置的根证书校
 val cas = CasClient("学号", "密码") { timeout = 10.seconds }
 cas.login { promptSmsCode() } // 只在需要多因素认证时调用
 val mailUrl = cas.serviceLoginUrl(SsoService.EMAIL) // 另有 LIBRARY、LIBRARY_RESERVATION、LEAVE
+val presidentMailboxUrl = cas.serviceLoginUrl(SsoService.PRESIDENT_MAILBOX)
 val gradesUrl = cas.serviceLoginUrl(SsoService.UndergradEas.GRADES)
 
 val eas = EasClient(cas).apply { login() }
@@ -29,7 +30,8 @@ SelfServiceClient("http://自助服务地址").use { it.login("学号", "密码"
 ```
 
 挂起函数都可在主线程调用，失败时抛 `ZzuException`。SDK 不会在令牌失效时隐式重登，令牌持久化由应用负责，见 `CasClient` 的文档。
-`SsoService.UndergradEas` 支持 11 个本科教务子应用，包括学籍、培养方案、选课、考试、学业预警、成绩、课表、全校开课、校历、空闲教室与教室课表；登录地址由 libzzu 在本地生成，不发起网络请求。返回的 URL 携带用户令牌，切勿写入日志。
+`SsoService.UndergradEas` 支持 11 个本科教务子应用，包括学籍、培养方案、选课、考试、学业预警、成绩、课表、全校开课、校历、空闲教室与教室课表。
+校长信箱与本科教务子应用的登录地址由 libzzu 在本地生成，不发起网络请求，分别使用 `token` 与 `idToken` 参数。返回的 URL 携带用户令牌，切勿写入日志。
 `rechargeEnergy` 被取消或超时后服务端可能已受理，须先查询余额再决定是否重试。
 
 ## 开发
