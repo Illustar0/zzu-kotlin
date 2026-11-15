@@ -40,9 +40,6 @@ public class SsoService private constructor(internal val wire: JsonElement) {
         /** 培养方案完成情况。 */
         public val PROGRAM_COMPLETION: SsoService = createService("program_completion")
 
-        /** 选课。 */
-        public val COURSE_SELECTION: SsoService = createService("course_selection")
-
         /** 考试查询。 */
         public val EXAMS: SsoService = createService("exams")
 

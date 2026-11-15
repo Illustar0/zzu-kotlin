@@ -32,7 +32,7 @@ PortalClient(discoverPortal(), PortalSourceAddress.SYSTEM).use { it.login("学�
 ```
 
 挂起函数都可在主线程调用，失败时抛 `ZzuException`。SDK 不会在令牌失效时隐式重登，令牌持久化由应用负责，见 `CasClient` 的文档。
-`SsoService.UndergradEas` 支持 11 个本科教务子应用，包括学籍、培养方案、选课、考试、学业预警、成绩、课表、全校开课、校历、空闲教室与教室课表。
+`SsoService.UndergradEas` 支持 10 个本科教务子应用，包括学籍、培养方案、考试、学业预警、成绩、课表、全校开课、校历、空闲教室与教室课表。
 校长信箱、校园卡与本科教务子应用的登录地址由 libzzu 在本地生成，不发起网络请求，前两者使用 `token` 参数，后者使用 `idToken`。返回的 URL 携带用户令牌，切勿写入日志。
 `rechargeEnergy` 被取消或超时后服务端可能已受理，须先查询余额再决定是否重试。
 

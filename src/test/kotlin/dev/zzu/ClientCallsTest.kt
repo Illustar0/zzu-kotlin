@@ -134,7 +134,6 @@ class ClientCallsTest {
         val serviceNames: List<Pair<SsoService, String>> = listOf(
             SsoService.UndergradEas.STUDENT_STATUS to "student_status",
             SsoService.UndergradEas.PROGRAM_COMPLETION to "program_completion",
-            SsoService.UndergradEas.COURSE_SELECTION to "course_selection",
             SsoService.UndergradEas.EXAMS to "exams",
             SsoService.UndergradEas.ACADEMIC_WARNINGS to "academic_warnings",
             SsoService.UndergradEas.GRADES to "grades",
