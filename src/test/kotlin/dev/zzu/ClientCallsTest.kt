@@ -116,6 +116,7 @@ class ClientCallsTest {
             SsoService.LIBRARY_RESERVATION,
             SsoService.LEAVE,
             SsoService.PRESIDENT_MAILBOX,
+            SsoService.ECARD,
         )
 
         val urls = services.map { cas.serviceLoginUrl(it) }
@@ -123,7 +124,7 @@ class ClientCallsTest {
         assertEquals(List(services.size) { url }, urls)
         assertEquals(setOf("service_login_url"), transport.calls.map { it.first }.toSet())
         assertEquals(
-            listOf("email", "library", "library_reservation", "leave", "president_mailbox"),
+            listOf("email", "library", "library_reservation", "leave", "president_mailbox", "ecard"),
             transport.calls.map { it.second!!["service"]!!.jsonPrimitive.content },
         )
     }

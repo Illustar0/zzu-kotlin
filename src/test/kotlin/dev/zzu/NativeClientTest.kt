@@ -81,6 +81,7 @@ class NativeClientTest {
             SsoService.LIBRARY_RESERVATION,
             SsoService.LEAVE,
             SsoService.PRESIDENT_MAILBOX,
+            SsoService.ECARD,
         ).forEach { service ->
             val failure = assertFailsWith<ZzuException.Authentication> { cas.serviceLoginUrl(service) }
 
