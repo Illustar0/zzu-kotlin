@@ -12,6 +12,7 @@ import dev.zzu.ecard.RechargeOrder
 import dev.zzu.ecard.RoomId
 import dev.zzu.internal.ZzuJson
 import dev.zzu.network.PortalClient
+import dev.zzu.network.PortalSourceAddress
 import dev.zzu.network.SelfServiceClient
 import java.io.File
 import java.net.InetAddress
@@ -93,6 +94,13 @@ class NativeClientTest {
     }
 
     @Test
+    @Test
+    fun portalAcceptsEverySourceAddress() {
+        PortalSourceAddress.entries.forEach { sourceAddress ->
+            PortalClient("http://10.0.0.1:801", "10.0.0.2", sourceAddress).close()
+        }
+    }
+
     fun derivedClientsOutliveTheCasHandle() = runTest {
         val eas = EasClient(cas)
         val ecard = EcardClient(cas)

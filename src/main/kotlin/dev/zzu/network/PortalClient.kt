@@ -50,27 +50,34 @@ public class PortalClient internal constructor(private val rpc: ZzuRpc) : AutoCl
  * 创建 Portal 客户端，不会发起网络请求。
  *
  * @param baseUrl 含主机名的 `http` 或 `https` 地址，通常取 [PortalInfo.portalServerUrl]。
- * @param userIp 本机内网 IP，登录时绑定为本地出口地址，通常取 [PortalInfo.userIp]。
+ * @param userIp 门户识别的终端 IP，登录时作为终端地址发送，通常取 [PortalInfo.userIp]。
+ * @param sourceAddress 是否把 [userIp] 绑定为本地源地址；选择 [PortalSourceAddress.USER_IP]
+ * 而 [userIp] 不是本机网卡地址时，[PortalClient.login] 会抛 [ZzuException.Transport]。
  * @throws ZzuException.InvalidInput 地址无效时。
  */
 public fun PortalClient(
     baseUrl: String,
     userIp: String,
+    sourceAddress: PortalSourceAddress = PortalSourceAddress.USER_IP,
     configure: ZzuClientConfig.() -> Unit = {},
 ): PortalClient {
     val config = nativeConfig(configure) {
         put("baseUrl", baseUrl)
         put("userIp", userIp)
+        putValue("sourceAddress", sourceAddress)
     }
     return PortalClient(ZzuRpc(nativePortalTransport(config)))
 }
 
-/** 用 [discoverPortal] 的结果创建 Portal 客户端，不会发起网络请求。 */
-public fun PortalClient(info: PortalInfo, configure: ZzuClientConfig.() -> Unit = {}): PortalClient =
-    PortalClient(info.portalServerUrl, info.userIp, configure)
+/** 用 [discoverPortal] 的结果创建 Portal 客户端，不会发起网络请求；[sourceAddress] 与接受 `baseUrl` 的重载相同。 */
+public fun PortalClient(
+    info: PortalInfo,
+    sourceAddress: PortalSourceAddress = PortalSourceAddress.USER_IP,
+    configure: ZzuClientConfig.() -> Unit = {},
+): PortalClient = PortalClient(info.portalServerUrl, info.userIp, sourceAddress, configure)
 
 /**
- * 探测当前网络下的校园网 Portal 地址与本机内网 IP。
+ * 探测当前网络下的校园网 Portal 地址与门户识别的终端 IP。
  *
  * @throws ZzuException.Remote 当前网络已连通互联网、未触发门户重定向时。
  */

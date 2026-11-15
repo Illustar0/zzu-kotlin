@@ -27,6 +27,7 @@ val balance = ecard.balance()
 
 PortalClient(discoverPortal()).use { portal -> portal.login("学号", "密码") }
 SelfServiceClient("http://自助服务地址").use { it.login("学号", "密码") }
+PortalClient(discoverPortal(), PortalSourceAddress.SYSTEM).use { it.login("学号", "密码") } // 位于 NAT 路由器后时
 ```
 
 挂起函数都可在主线程调用，失败时抛 `ZzuException`。SDK 不会在令牌失效时隐式重登，令牌持久化由应用负责，见 `CasClient` 的文档。

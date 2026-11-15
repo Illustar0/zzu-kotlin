@@ -14,7 +14,7 @@ import kotlinx.serialization.Serializable
  *
  * @property authUrl Portal 认证页根地址。
  * @property portalServerUrl `eportal` 登录接口地址。
- * @property userIp 本机内网 IP。
+ * @property userIp 门户识别的终端 IP；终端位于 NAT 路由器后时为路由器 WAN 口地址。
  */
 @Poko
 @Serializable
@@ -23,6 +23,18 @@ public class PortalInfo(
     public val portalServerUrl: String,
     public val userIp: String,
 )
+
+/** Portal 登录请求的本地源地址选择方式。 */
+@Serializable
+public enum class PortalSourceAddress {
+    /** 把 `userIp` 绑定为本地源地址，适用于终端直接接入校园网。 */
+    @SerialName("user_ip")
+    USER_IP,
+
+    /** 由系统路由选择源地址，适用于终端位于 NAT 路由器后、`userIp` 为路由器 WAN 口地址。 */
+    @SerialName("system")
+    SYSTEM,
+}
 
 /** Portal 登录请求的编码方式。 */
 @Serializable
