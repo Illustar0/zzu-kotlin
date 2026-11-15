@@ -49,8 +49,8 @@ class NativeClientTest {
     fun requireNativeLibrary() {
         val directory = System.getProperty("jna.library.path")?.let(::File)
         assumeTrue(
-            "缺少桌面版 libzzu，先在 libzzu 中运行 cargo build -p libzzu --release",
-            directory?.listFiles { file -> file.name.startsWith("libzzu.") }?.isNotEmpty() == true,
+            "本机平台没有桌面版 libzzu 发布包",
+            directory?.listFiles()?.isNotEmpty() == true,
         )
     }
 
@@ -95,13 +95,13 @@ class NativeClientTest {
     }
 
     @Test
-    @Test
     fun portalAcceptsEverySourceAddress() {
         PortalSourceAddress.entries.forEach { sourceAddress ->
             PortalClient("http://10.0.0.1:801", "10.0.0.2", sourceAddress).close()
         }
     }
 
+    @Test
     fun derivedClientsOutliveTheCasHandle() = runTest {
         val eas = EasClient(cas)
         val ecard = EcardClient(cas)

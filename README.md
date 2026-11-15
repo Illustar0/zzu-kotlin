@@ -1,6 +1,6 @@
 # zzu-kotlin
 
-[libzzu](../../RustOver/libzzu) 的 Android Kotlin SDK，基于 JNA、协程与 kotlinx.serialization。
+[libzzu](https://github.com/Illustar0/libzzu) 的 Android Kotlin SDK，基于 JNA、协程与 kotlinx.serialization。
 
 ## 接入
 
@@ -27,8 +27,8 @@ val ecard = EcardClient(cas).apply { login() }
 val balance = ecard.balance()
 
 PortalClient(discoverPortal()).use { portal -> portal.login("学号", "密码") }
-SelfServiceClient("http://自助服务地址").use { it.login("学号", "密码") }
 PortalClient(discoverPortal(), PortalSourceAddress.SYSTEM).use { it.login("学号", "密码") } // 位于 NAT 路由器后时
+SelfServiceClient("http://自助服务地址").use { it.login("学号", "密码") }
 ```
 
 挂起函数都可在主线程调用，失败时抛 `ZzuException`。SDK 不会在令牌失效时隐式重登，令牌持久化由应用负责，见 `CasClient` 的文档。
@@ -38,17 +38,17 @@ PortalClient(discoverPortal(), PortalSourceAddress.SYSTEM).use { it.login("学�
 
 ## 开发
 
-原生库取自 libzzu 的打包产物，位置由 `gradle.properties` 的 `libzzu.dir` 与 `libzzu.version` 决定：
+原生库从 libzzu 的 GitHub Release 下载，版本由 `gradle/libs.versions.toml` 的 `libzzu` 决定。下载的发布包须与 `gradle/libzzu.sha256` 中固定的 SHA-256 一致，升级版本后重新生成该文件：
 
 ```bash
-dotnet run --project build -- Package --platform aarch64-linux-android
+gh release view v0.1.0 -R Illustar0/libzzu --json assets --jq '.assets[] | select(.name | endswith(".tar.gz")) | "\(.digest | ltrimstr("sha256:"))  \(.name)"' > gradle/libzzu.sha256
 ```
 
 ```bash
 ./gradlew testDebugUnitTest
 ```
 
-本机测试加载 `<libzzu.dir>/target/release` 下的桌面版动态库，缺失时跳过原生集成测试。
+本机测试加载本机平台的桌面版发布包（macOS、Linux GNU 与 Windows MSVC 的 x86_64 和 aarch64），其他平台跳过原生集成测试。
 
 静态检查用 detekt，规则调整写在 `config/detekt/detekt.yml`，`check` 已包含这两个任务：
 
