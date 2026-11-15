@@ -57,7 +57,7 @@ public class EcardClient internal constructor(private val rpc: ZzuRpc) : AutoClo
     /**
      * 用校园卡支付密码从卡余额扣款，为 [room] 充值电费。
      *
-     * 这是非幂等操作：协程被取消、超时或收到 [ZzuException.Decode] 时服务端都可能已受理，
+     * 这是非幂等操作：协程被取消、超时或收到 [ZzuException.Decode]、[ZzuException.Crypto] 时服务端都可能已受理，
      * 须先查询 [balance] 再决定是否重试。
      *
      * @param amount 充值金额，单位为元，须为正整数。
