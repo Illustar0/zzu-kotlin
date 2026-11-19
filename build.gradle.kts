@@ -21,7 +21,6 @@ android {
     defaultConfig {
         minSdk = 26
         consumerProguardFiles("consumer-rules.pro")
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
@@ -52,11 +51,6 @@ dependencies {
     testImplementation(kotlin("test-junit"))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.jna)
-
-    androidTestImplementation(kotlin("test-junit"))
-    androidTestImplementation(libs.kotlinx.coroutines.test)
-    androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(libs.androidx.test.junit)
 }
 
 /** 校验 libzzu 发布包的 SHA-256，再按 [libraries] 把其中的动态库解压到 [outputDirectory]。 */
