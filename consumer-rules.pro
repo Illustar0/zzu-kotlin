@@ -4,4 +4,4 @@
 -keep class * implements com.sun.jna.** { *; }
 
 # libzzu 的 JNA 直接映射，函数名即 C 符号名。
--keep class dev.zzu.internal.LibZzu { *; }
+-keep class com.illustar0.zzu.internal.LibZzu { *; }

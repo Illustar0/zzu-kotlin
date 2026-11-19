@@ -11,11 +11,11 @@ plugins {
     `maven-publish`
 }
 
-group = "dev.zzu"
+group = "com.illustar0"
 version = "0.1.0"
 
 android {
-    namespace = "dev.zzu"
+    namespace = "com.illustar0.zzu"
     compileSdk = 37
 
     defaultConfig {
