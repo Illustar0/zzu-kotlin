@@ -63,13 +63,16 @@ abstract class ExtractLibzzu @Inject constructor(
 ) : DefaultTask() {
     /** `libzzu-<target>.tar.gz` 发布包。 */
     @get:InputFiles
-    @get:PathSensitive(PathSensitivity.NONE)
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
     abstract val packages: ConfigurableFileCollection
 
     /** `sha256sum` 格式的可信摘要清单。 */
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val checksums: RegularFileProperty
+
+    @get:Input
+    abstract val releaseVersion: Property<String>
 
     /** 发布包内的库路径（如 `libzzu-aarch64-linux-android/lib/libzzu.so`）到输出路径的映射。 */
     @get:Input
@@ -80,10 +83,16 @@ abstract class ExtractLibzzu @Inject constructor(
 
     @TaskAction
     fun extract() {
-        val trustedDigests = checksums.get().asFile.readLines().map { it.substringBefore(' ') }.toSet()
+        val checksumFile = checksums.get().asFile
+        val trustedDigests = checksumFile.readLines().associate { line ->
+            val releaseName = line.substringAfter(' ').trimStart().removePrefix("*")
+            releaseName to line.substringBefore(' ')
+        }
+        val cachedNamePrefix = "libzzu-${releaseVersion.get()}-"
         packages.forEach { archive ->
-            check(sha256(archive) in trustedDigests) {
-                "${archive.name} 的 SHA-256 未列在 ${checksums.get()} 中；升级 libzzu 后须重新生成该文件"
+            val releaseName = archive.name.replaceFirst(cachedNamePrefix, "libzzu-")
+            check(sha256(archive) == trustedDigests[releaseName]) {
+                "$releaseName 的 SHA-256 与 ${checksumFile.name} 中的记录不符；升级 libzzu 后须重新生成该文件"
             }
         }
         val outputPaths = libraries.get()
@@ -131,28 +140,24 @@ val desktopLibrary = desktopLibzzu(
     providers.systemProperty("os.name").get(),
     providers.systemProperty("os.arch").get(),
 )
-val libzzuChecksums = layout.projectDirectory.file("gradle/libzzu.sha256")
 
-val libzzuAndroid = configurations.dependencyScope("libzzuAndroid").get()
-val libzzuDesktop = configurations.dependencyScope("libzzuDesktop").get()
-val libzzuAndroidPackages = configurations.resolvable("libzzuAndroidPackages") { extendsFrom(libzzuAndroid) }
-val libzzuDesktopPackages = configurations.resolvable("libzzuDesktopPackages") { extendsFrom(libzzuDesktop) }
+fun libzzuPackages(targets: Collection<String>): Configuration {
+    val libzzu = libs.libzzu.get()
+    val coordinates = "${libzzu.group}:${libzzu.name}:${libzzu.version}"
+    val artifacts = targets.map { target -> dependencies.create("$coordinates:$target@tar.gz") }
+    return configurations.detachedConfiguration(*artifacts.toTypedArray())
+}
 
-dependencies {
-    fun libzzuPackage(target: String) = variantOf(libs.libzzu) {
-        classifier(target)
-        artifactType("tar.gz")
-    }
-    androidTargets.values.forEach { libzzuAndroid(libzzuPackage(it)) }
-    desktopLibrary?.let { (target, _) -> libzzuDesktop(libzzuPackage(target)) }
+tasks.withType<ExtractLibzzu>().configureEach {
+    checksums = layout.projectDirectory.file("gradle/libzzu.sha256")
+    releaseVersion = libs.versions.libzzu
 }
 
 val extractAndroidLibzzu = tasks.register<ExtractLibzzu>("extractAndroidLibzzu") {
     group = "build"
     description = "Extracts Android libzzu shared libraries for packaging into the AAR."
 
-    packages.from(libzzuAndroidPackages)
-    checksums = libzzuChecksums
+    packages.from(libzzuPackages(androidTargets.values))
     libraries = androidTargets.entries.associate { (abi, target) ->
         "libzzu-$target/lib/libzzu.so" to "$abi/libzzu.so"
     }
@@ -168,8 +173,7 @@ desktopLibrary?.let { (target, library) ->
     val extractDesktopLibzzu = tasks.register<ExtractLibzzu>("extractDesktopLibzzu") {
         description = "Extracts the desktop libzzu shared library for local JVM tests."
 
-        packages.from(libzzuDesktopPackages)
-        checksums = libzzuChecksums
+        packages.from(libzzuPackages(listOf(target)))
         libraries = mapOf("libzzu-$target/lib/$library" to library)
         outputDirectory = layout.buildDirectory.dir("libzzu/desktop")
     }
