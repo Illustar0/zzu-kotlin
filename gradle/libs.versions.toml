@@ -3,6 +3,7 @@ agp = "9.5.0"
 kotlin = "2.4.21"
 poko = "0.23.2"
 detekt = "2.0.0-alpha.6"
+maven-publish = "0.37.0"
 coroutines = "1.11.0"
 serialization = "1.12.0"
 datetime = "0.8.0"
@@ -22,3 +23,4 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 poko = { id = "dev.drewhamilton.poko", version.ref = "poko" }
 detekt = { id = "dev.detekt", version.ref = "detekt" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }

@@ -8,11 +8,11 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.poko)
     alias(libs.plugins.detekt)
-    `maven-publish`
+    alias(libs.plugins.maven.publish)
 }
 
 group = "com.illustar0"
-version = "0.1.0"
+version = providers.gradleProperty("releaseVersion").orElse("0.1.0").get()
 
 android {
     namespace = "com.illustar0.zzu"
@@ -29,10 +29,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    publishing {
-        singleVariant("release") { withSourcesJar() }
     }
 }
 
@@ -194,11 +190,37 @@ tasks.named("check") {
     dependsOn("detektMain", "detektTest")
 }
 
-publishing {
-    publications {
-        register<MavenPublication>("release") {
-            artifactId = "zzu"
-            afterEvaluate { from(components["release"]) }
+mavenPublishing {
+    coordinates(artifactId = "zzu")
+    publishToMavenCentral()
+    signAllPublications()
+
+    val repository = providers.environmentVariable("GITHUB_REPOSITORY").orElse("Illustar0/zzu-kotlin").get()
+    val projectUrl = "https://github.com/$repository"
+    pom {
+        name.set("zzu-kotlin")
+        description.set("Android Kotlin SDK for Zhengzhou University services")
+        url.set(projectUrl)
+        licenses {
+            license {
+                name.set("MIT License")
+                url.set("https://opensource.org/license/mit")
+            }
+            license {
+                name.set("Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0")
+            }
+        }
+        developers {
+            developer {
+                id.set("Illustar0")
+                name.set("Illustar0")
+            }
+        }
+        scm {
+            url.set(projectUrl)
+            connection.set("scm:git:$projectUrl.git")
+            developerConnection.set("scm:git:ssh://git@github.com/$repository.git")
         }
     }
 }
