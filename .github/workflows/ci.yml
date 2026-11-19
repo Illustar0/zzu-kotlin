@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Describe build version
+        id: version
+        run: |
+          if described="$(git describe --tags --long --match 'v[0-9]*' 2>/dev/null)"; then
+            sha="${described##*-}"
+            rest="${described%-*}"
+            distance="${rest##*-}"
+            tag="${rest%-*}"
+            version="${tag#v}+${distance}.${sha}"
+          else
+            version="0.0.0+$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check and assemble AAR
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: ./gradlew check assembleRelease "-PreleaseVersion=$VERSION"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: zzu-${{ steps.version.outputs.version }}
+          path: build/outputs/aar/zzu-kotlin-release.aar
+          if-no-files-found: error
+          compression-level: 0
