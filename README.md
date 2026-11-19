@@ -4,7 +4,9 @@
 
 ## 接入
 
-SDK 无需初始化，`minSdk` 为 26。TLS 证书用系统内置的根证书校验，不信任用户安装的证书，也不遵循应用的 `network_security_config`。
+SDK 无需初始化。接入方的 `compileSdk` 至少为 26，SDK 的 `minSdk` 为 26。
+
+TLS 证书用系统内置的根证书校验，不信任用户安装的证书，也不遵循应用的 `network_security_config`。
 
 ## 用法
 
