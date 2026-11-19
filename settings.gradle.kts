@@ -14,7 +14,6 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // libzzu 的发布包只是 GitHub Release 附件，没有元数据，按文件名直接解析；完整性由 gradle/libzzu.sha256 保证。
         exclusiveContent {
             forRepository {
                 ivy("https://github.com/Illustar0/libzzu/releases/download") {

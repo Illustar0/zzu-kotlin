@@ -62,13 +62,9 @@ abstract class ExtractLibzzu @Inject constructor(
     @get:PathSensitive(PathSensitivity.NAME_ONLY)
     abstract val packages: ConfigurableFileCollection
 
-    /** `sha256sum` 格式的可信摘要清单。 */
-    @get:InputFile
-    @get:PathSensitive(PathSensitivity.NONE)
-    abstract val checksums: RegularFileProperty
-
-    @get:Input
-    abstract val releaseVersion: Property<String>
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
+    abstract val checksumFiles: ConfigurableFileCollection
 
     /** 发布包内的库路径（如 `libzzu-aarch64-linux-android/lib/libzzu.so`）到输出路径的映射。 */
     @get:Input
@@ -79,16 +75,13 @@ abstract class ExtractLibzzu @Inject constructor(
 
     @TaskAction
     fun extract() {
-        val checksumFile = checksums.get().asFile
-        val trustedDigests = checksumFile.readLines().associate { line ->
-            val releaseName = line.substringAfter(' ').trimStart().removePrefix("*")
-            releaseName to line.substringBefore(' ')
-        }
-        val cachedNamePrefix = "libzzu-${releaseVersion.get()}-"
+        val checksumFilesByName = checksumFiles.associateBy { it.name }
         packages.forEach { archive ->
-            val releaseName = archive.name.replaceFirst(cachedNamePrefix, "libzzu-")
-            check(sha256(archive) == trustedDigests[releaseName]) {
-                "$releaseName 的 SHA-256 与 ${checksumFile.name} 中的记录不符；升级 libzzu 后须重新生成该文件"
+            val checksumName = "${archive.name}.sha256"
+            val checksumFile = checkNotNull(checksumFilesByName[checksumName]) { "缺少校验文件 $checksumName" }
+            val expectedSha256 = checksumFile.readText().trimStart().takeWhile { !it.isWhitespace() }
+            check(sha256(archive).equals(expectedSha256, ignoreCase = true)) {
+                "${archive.name} 的 SHA-256 与 $checksumName 中的记录不符"
             }
         }
         val outputPaths = libraries.get()
@@ -137,23 +130,19 @@ val desktopLibrary = desktopLibzzu(
     providers.systemProperty("os.arch").get(),
 )
 
-fun libzzuPackages(targets: Collection<String>): Configuration {
+fun libzzuArtifacts(targets: Collection<String>, extension: String): Configuration {
     val libzzu = libs.libzzu.get()
     val coordinates = "${libzzu.group}:${libzzu.name}:${libzzu.version}"
-    val artifacts = targets.map { target -> dependencies.create("$coordinates:$target@tar.gz") }
+    val artifacts = targets.map { target -> dependencies.create("$coordinates:$target@$extension") }
     return configurations.detachedConfiguration(*artifacts.toTypedArray())
-}
-
-tasks.withType<ExtractLibzzu>().configureEach {
-    checksums = layout.projectDirectory.file("gradle/libzzu.sha256")
-    releaseVersion = libs.versions.libzzu
 }
 
 val extractAndroidLibzzu = tasks.register<ExtractLibzzu>("extractAndroidLibzzu") {
     group = "build"
     description = "Extracts Android libzzu shared libraries for packaging into the AAR."
 
-    packages.from(libzzuPackages(androidTargets.values))
+    packages.from(libzzuArtifacts(androidTargets.values, "tar.gz"))
+    checksumFiles.from(libzzuArtifacts(androidTargets.values, "tar.gz.sha256"))
     libraries = androidTargets.entries.associate { (abi, target) ->
         "libzzu-$target/lib/libzzu.so" to "$abi/libzzu.so"
     }
@@ -169,7 +158,8 @@ desktopLibrary?.let { (target, library) ->
     val extractDesktopLibzzu = tasks.register<ExtractLibzzu>("extractDesktopLibzzu") {
         description = "Extracts the desktop libzzu shared library for local JVM tests."
 
-        packages.from(libzzuPackages(listOf(target)))
+        packages.from(libzzuArtifacts(listOf(target), "tar.gz"))
+        checksumFiles.from(libzzuArtifacts(listOf(target), "tar.gz.sha256"))
         libraries = mapOf("libzzu-$target/lib/$library" to library)
         outputDirectory = layout.buildDirectory.dir("libzzu/desktop")
     }
