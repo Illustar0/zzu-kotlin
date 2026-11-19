@@ -80,17 +80,17 @@ jobs:
         run: ./gradlew check assembleRelease "-PreleaseVersion=$VERSION"
 
       - name: Stage release AAR
-        run: cp build/outputs/aar/zzu-kotlin-release.aar "zzu-$VERSION.aar"
+        run: cp build/outputs/aar/zzu-kotlin-release.aar zzu.aar
 
       - if: ${{ !github.event.repository.private }}
         uses: actions/attest@v4
         with:
-          subject-path: zzu-${{ env.VERSION }}.aar
+          subject-path: zzu.aar
 
       - uses: actions/upload-artifact@v7
         with:
           name: release-aar
-          path: zzu-${{ env.VERSION }}.aar
+          path: zzu.aar
           if-no-files-found: error
           compression-level: 0
 
@@ -127,5 +127,5 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: ${{ needs.prepare.outputs.tag }}
           body_path: release-notes.md
-          files: dist/zzu-${{ needs.prepare.outputs.version }}.aar
+          files: dist/zzu.aar
           fail_on_unmatched_files: true
