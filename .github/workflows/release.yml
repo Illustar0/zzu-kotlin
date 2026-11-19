@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency: release
+
+jobs:
+  prepare:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff
+
+      - name: Calculate next version
+        id: version
+        run: |
+          tag="$(git cliff --bumped-version)"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::git-cliff did not produce a release tag: $tag"
+            exit 1
+          fi
+          if git show-ref --verify --quiet "refs/tags/$tag"; then
+            echo "::error::Tag $tag already exists; there are no releasable commits since it."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: git cliff --unreleased --tag "$TAG" --strip all --output release-notes.md
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: release-notes.md
+          if-no-files-found: error
+
+  publish:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
+
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Check and assemble release AAR
+        run: ./gradlew check assembleRelease "-PreleaseVersion=$VERSION"
+
+      - name: Stage release AAR
+        run: cp build/outputs/aar/zzu-kotlin-release.aar "zzu-$VERSION.aar"
+
+      - if: ${{ !github.event.repository.private }}
+        uses: actions/attest@v4
+        with:
+          subject-path: zzu-${{ env.VERSION }}.aar
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-aar
+          path: zzu-${{ env.VERSION }}.aar
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Publish to Maven Central
+        run: >-
+          ./gradlew publishAndReleaseToMavenCentral --no-configuration-cache
+          "-PreleaseVersion=$VERSION" -PmavenCentralDeploymentValidation=PUBLISHED
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
+
+  release:
+    needs: [prepare, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-aar
+          path: dist
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ needs.prepare.outputs.tag }}
+          body_path: release-notes.md
+          files: dist/zzu-${{ needs.prepare.outputs.version }}.aar
+          fail_on_unmatched_files: true
