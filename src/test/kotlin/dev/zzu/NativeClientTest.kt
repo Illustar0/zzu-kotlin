@@ -43,7 +43,8 @@ import org.junit.Assume.assumeTrue
 
 /** 用真实的桌面版 libzzu 走完 JNA 与回调链路，全部离线。 */
 class NativeClientTest {
-    private val cas by lazy { CasClient("", "") { timeout = 5.seconds } }
+    private val lazyCas = lazy { CasClient("", "") { timeout = 5.seconds } }
+    private val cas by lazyCas
 
     @BeforeTest
     fun requireNativeLibrary() {
@@ -56,7 +57,7 @@ class NativeClientTest {
 
     @AfterTest
     fun closeClient() {
-        cas.close()
+        if (lazyCas.isInitialized()) cas.close()
     }
 
     @Test
