@@ -281,8 +281,10 @@ class ClientCallsTest {
     fun easClassroomQueriesEncodeFlatFilterParameters() = runTest {
         val transport = FakeTransport { method ->
             when (method) {
-                "classroom_catalog" -> """{"campuses": [], "buildings": [], "roomTypes": [], "floors": [1, 2]}"""
-                "classroom_occupancies_page" -> """{"items": [], "page": 2, "pageSize": 20, "totalItems": 45, "totalPages": 3}"""
+                "classroom_catalog" ->
+                    """{"campuses": [], "buildings": [], "roomTypes": [], "floors": [1, 2]}"""
+                "classroom_occupancies_page" ->
+                    """{"items": [], "page": 2, "pageSize": 20, "totalItems": 45, "totalPages": 3}"""
                 "classroom_occupancies" -> "[]"
                 else -> "null"
             }
@@ -301,7 +303,10 @@ class ClientCallsTest {
         assertEquals(listOf(1, 2), eas.classroomCatalog().floors)
         val page = eas.classroomOccupanciesPage(query, page = 2, pageSize = 20)
         assertTrue(page.hasNext)
-        assertEquals(emptyList(), eas.classroomOccupancies(query, ClassroomFetchOptions(pageSize = 30, concurrency = 4)))
+        assertEquals(
+            emptyList(),
+            eas.classroomOccupancies(query, ClassroomFetchOptions(pageSize = 30, concurrency = 4)),
+        )
 
         assertEquals(
             listOf("classroom_catalog", "classroom_occupancies_page", "classroom_occupancies"),
