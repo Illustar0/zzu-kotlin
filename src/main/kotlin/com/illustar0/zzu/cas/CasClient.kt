@@ -41,7 +41,8 @@ public class CasClient internal constructor(
      * 会直接复用现有令牌并激活本地会话，不发起网络请求；否则自动探测 MFA 状态、获取服务端 RSA 公钥并加密凭据完成密码登录。
      *
      * @throws ZzuException.Authentication 需要多因素认证时 `kind` 为 [AuthenticationErrorKind.MFA_REQUIRED]，
-     * 须依次调用 [sendSms]、[verifySms] 再重新调用 [login]（或直接改用接受回调的 [login] 重载）；
+     * 可先调用 [prepareSms] 预览脱敏手机号，再依次调用 [sendSms]、[verifySms] 与 [login]
+     * （或直接改用接受回调的 [login] 重载）；
      * 账号或密码错误时 `kind` 为 [AuthenticationErrorKind.INVALID_CREDENTIALS]；
      * 服务端签发的令牌已过期时 `kind` 为 [AuthenticationErrorKind.TOKEN_EXPIRED]。
      * @throws ZzuException.Transport 网络传输失败时。
@@ -54,23 +55,23 @@ public class CasClient internal constructor(
     }
 
     /**
-     * 登录统一身份认证会话；需要多因素认证时自动发送短信，并向 [smsCode] 索取验证码。
+     * 登录统一身份认证会话；需要多因素认证时自动发送短信，并将 [SmsChallenge] 传给 [smsCode] 以索取验证码。
      *
      * 当无参数 [login] 抛出 `kind` 为 [AuthenticationErrorKind.MFA_REQUIRED] 的 [ZzuException.Authentication] 时，
      * 会依次执行 [sendSms]、调用 [smsCode]、执行 [verifySms]，随后再调用 [login] 完成签发；
      * 其他异常直接向外抛出。[smsCode] 只在需要多因素认证且短信发出后调用。
      *
      * ```kotlin
-     * cas.login { smsDialog.awaitCode() }
+     * cas.login { challenge -> smsDialog.awaitCode(challenge.securePhone) }
      * ```
      */
-    public suspend fun login(smsCode: suspend () -> String) {
+    public suspend fun login(smsCode: suspend (SmsChallenge) -> String) {
         try {
             login()
         } catch (exception: ZzuException.Authentication) {
             if (exception.kind != AuthenticationErrorKind.MFA_REQUIRED) throw exception
-            sendSms()
-            verifySms(smsCode())
+            val challenge = sendSms()
+            verifySms(smsCode(challenge))
             login()
         }
     }
@@ -136,6 +137,8 @@ public class CasClient internal constructor(
     /**
      * 向服务端探测当前账号与设备是否需要多因素认证，并更新内部 MFA 状态。
      *
+     * 每次调用都会重置未完成的 MFA 状态，可在验证会话过期后用于重新开启一轮验证。
+     *
      * @throws ZzuException.Transport 网络传输失败时。
      * @throws ZzuException.Http 服务端返回非 2xx 状态码时。
      * @throws ZzuException.Decode 公钥或响应 MFA 字段解析失败时。
@@ -145,9 +148,26 @@ public class CasClient internal constructor(
     public suspend fun detectMfa(): MfaStatus = rpc.fetch("detect_mfa")
 
     /**
-     * 初始化短信多因素认证并请求服务端向绑定的安全手机发送验证码。
+     * 初始化短信多因素认证会话并返回发送上下文（含脱敏安全手机号），不发送短信。
      *
-     * 若此前尚未探测 MFA 状态，会自动先探测一次。
+     * 该步骤可选，适合先在界面展示脱敏手机号，再调用 [sendSms]。
+     * 若此前尚未探测 MFA 状态，会自动先探测一次；同一轮验证内重复调用会直接返回缓存的上下文。
+     * 收到服务端拒绝或无效响应时会自动清空 MFA 状态。
+     *
+     * @throws ZzuException.Authentication 当前会话不需要多因素认证或不支持短信验证时 `kind` 为
+     * [AuthenticationErrorKind.INVALID_MFA_STATE]；探测或初始化被服务端拒绝时为其他认证错误。
+     * @throws ZzuException.Transport 网络传输失败时。
+     * @throws ZzuException.Http 服务端返回非 2xx 状态码时。
+     * @throws ZzuException.Decode 响应解析失败时。
+     */
+    public suspend fun prepareSms(): SmsChallenge = rpc.fetch("prepare_sms")
+
+    /**
+     * 请求服务端向绑定的安全手机发送短信验证码，并返回发送上下文（含脱敏安全手机号）。
+     *
+     * 若此前尚未探测或初始化短信 MFA 会话，会自动先完成 [prepareSms]。
+     * 短信发送失败时（如触发频控冷却）会保留当前 MFA 会话，避免作废已发出的验证码；
+     * 若会话已过期，可调用 [detectMfa] 重新开启一轮验证。
      *
      * @throws ZzuException.Authentication 当前会话不需要多因素认证或不支持短信验证时 `kind` 为
      * [AuthenticationErrorKind.INVALID_MFA_STATE]；初始化或发送过程被拒绝时为其他认证错误。
@@ -155,12 +175,12 @@ public class CasClient internal constructor(
      * @throws ZzuException.Http 服务端返回非 2xx 状态码时。
      * @throws ZzuException.Decode 响应解析失败时。
      */
-    public suspend fun sendSms() {
-        rpc.perform("send_sms")
-    }
+    public suspend fun sendSms(): SmsChallenge = rpc.fetch("send_sms")
 
     /**
      * 校验短信验证码 [code] 以完成多因素认证；校验通过后须再次调用 [login] 完成令牌签发。
+     *
+     * 验证码不匹配时会保留当前 MFA 会话，可直接重试；服务端返回非 2xx 或业务失败（如验证会话已过期）时会自动清空 MFA 状态。
      *
      * @throws ZzuException.InvalidInput [code] 为空字符串时。
      * @throws ZzuException.Authentication 尚未调用 [sendSms] 时 `kind` 为 [AuthenticationErrorKind.INVALID_MFA_STATE]；

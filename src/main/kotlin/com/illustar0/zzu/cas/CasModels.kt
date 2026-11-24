@@ -100,6 +100,17 @@ public class MfaStatus(
 )
 
 /**
+ * 短信多因素认证的发送上下文。
+ *
+ * @property securePhone 服务端返回的脱敏安全手机号；服务端未提供时为 `null`。
+ */
+@Poko
+@Serializable
+public class SmsChallenge(
+    public val securePhone: String? = null,
+)
+
+/**
  * 个人基础信息与门户概览统计。
  *
  * 包含学号、姓名与余额等敏感字段，[toString] 只输出 [identityTypeName] 与 [organizationName]。

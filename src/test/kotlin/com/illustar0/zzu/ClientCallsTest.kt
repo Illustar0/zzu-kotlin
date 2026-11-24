@@ -1,6 +1,7 @@
 package com.illustar0.zzu
 
 import com.illustar0.zzu.cas.CasClient
+import com.illustar0.zzu.cas.SmsChallenge
 import com.illustar0.zzu.cas.SsoService
 import com.illustar0.zzu.cas.Tokens
 import com.illustar0.zzu.eas.EasClient
@@ -40,6 +41,7 @@ class ClientCallsTest {
     @Test
     fun smsLoginSendsTheCodeThenRetries() = runTest {
         var loginAttempts = 0
+        var receivedChallenge: SmsChallenge? = null
         val transport = object : com.illustar0.zzu.internal.CasTransport by FakeTransport() {
             val methods = mutableListOf<String>()
 
@@ -51,14 +53,37 @@ class ClientCallsTest {
                 if (method == "login" && ++loginAttempts == 1) {
                     throw ZzuException.Authentication(AuthenticationErrorKind.MFA_REQUIRED, "需要 MFA")
                 }
+                if (method == "send_sms") {
+                    return """{"securePhone": "138****1234"}""".encodeToByteArray()
+                }
                 return "null".encodeToByteArray()
             }
         }
-        val cas = CasClient(transport)
+        val cas = CasClient(transport, rpcOver(transport))
 
-        cas.login { "123456" }
+        cas.login { challenge ->
+            receivedChallenge = challenge
+            "123456"
+        }
 
+        assertEquals(SmsChallenge("138****1234"), receivedChallenge)
         assertEquals(listOf("login", "send_sms", "verify_sms", "login"), transport.methods)
+    }
+
+    @Test
+    fun casPreparesAndSendsSmsWithMaskedPhone() = runTest {
+        val transport = FakeTransport { method ->
+            when (method) {
+                "prepare_sms" -> """{"securePhone": "138****5678"}"""
+                "send_sms" -> """{"securePhone": null}"""
+                else -> "null"
+            }
+        }
+        val cas = CasClient(transport, rpcOver(transport))
+
+        assertEquals(SmsChallenge("138****5678"), cas.prepareSms())
+        assertEquals(SmsChallenge(null), cas.sendSms())
+        assertEquals(listOf("prepare_sms" to null, "send_sms" to null), transport.calls)
     }
 
     @Test
