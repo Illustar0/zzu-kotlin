@@ -7,7 +7,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** 可通过 [CasClient.serviceLoginUrl] 获取单点登录跳转地址的业务系统。 */
+/** 可通过 [CasClient.serviceSsoUrl] 获取单点登录跳转地址的业务系统。 */
 @Poko
 public class SsoService private constructor(internal val wire: JsonElement) {
     public companion object {

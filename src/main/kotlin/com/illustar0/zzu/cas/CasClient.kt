@@ -240,8 +240,8 @@ public class CasClient internal constructor(
      * @throws ZzuException.Http 服务端返回非 2xx/3xx 状态码时。
      * @throws ZzuException.Decode 重定向响应缺少非空 `Location` 头或目标 URL 构造失败时。
      */
-    public suspend fun serviceLoginUrl(service: SsoService): String =
-        rpc.fetch("service_login_url", buildJsonObject { put("service", service.wire) })
+    public suspend fun serviceSsoUrl(service: SsoService): String =
+        rpc.fetch("service_sso_url", buildJsonObject { put("service", service.wire) })
 }
 
 /**

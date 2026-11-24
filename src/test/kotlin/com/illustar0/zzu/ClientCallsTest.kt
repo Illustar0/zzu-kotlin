@@ -155,7 +155,7 @@ class ClientCallsTest {
     }
 
     @Test
-    fun casRequestsStandaloneServiceLoginUrlsByWireName() = runTest {
+    fun casRequestsStandaloneServiceSsoUrlsByWireName() = runTest {
         val url = "https://mail.test/coremail/main.jsp?sid=test-session"
         val transport = FakeTransport { "\"$url\"" }
         val cas = CasClient(transport)
@@ -169,10 +169,10 @@ class ClientCallsTest {
             SsoService.ECARD,
         )
 
-        val urls = services.map { cas.serviceLoginUrl(it) }
+        val urls = services.map { cas.serviceSsoUrl(it) }
 
         assertEquals(List(services.size) { url }, urls)
-        assertEquals(setOf("service_login_url"), transport.calls.map { it.first }.toSet())
+        assertEquals(setOf("service_sso_url"), transport.calls.map { it.first }.toSet())
         assertEquals(
             listOf("email", "library", "library_reservation", "leave", "president_mailbox", "ecard"),
             transport.calls.map { it.second!!["service"]!!.jsonPrimitive.content },
@@ -180,7 +180,7 @@ class ClientCallsTest {
     }
 
     @Test
-    fun casRequestsUndergradEasLoginUrlsWithAbiServiceNames() = runTest {
+    fun casRequestsUndergradEasSsoUrlsWithAbiServiceNames() = runTest {
         val serviceNames: List<Pair<SsoService, String>> = listOf(
             SsoService.UndergradEas.STUDENT_STATUS to "student_status",
             SsoService.UndergradEas.PROGRAM_COMPLETION to "program_completion",
@@ -197,10 +197,10 @@ class ClientCallsTest {
         val transport = FakeTransport { "\"$url\"" }
         val cas = CasClient(transport, rpcOver(transport))
 
-        val urls = serviceNames.map { (service, _) -> cas.serviceLoginUrl(service) }
+        val urls = serviceNames.map { (service, _) -> cas.serviceSsoUrl(service) }
 
         assertEquals(List(serviceNames.size) { url }, urls)
-        assertEquals(List(serviceNames.size) { "service_login_url" }, transport.calls.map { it.first })
+        assertEquals(List(serviceNames.size) { "service_sso_url" }, transport.calls.map { it.first })
         assertEquals(
             serviceNames.map { (_, name) ->
                 buildJsonObject {
