@@ -17,6 +17,7 @@ import com.illustar0.zzu.internal.ZzuJson
 import com.illustar0.zzu.internal.ZzuRpc
 import com.illustar0.zzu.internal.ZzuTransport
 import com.illustar0.zzu.mail.MailClient
+import com.illustar0.zzu.network.IspInfo
 import com.illustar0.zzu.network.PortalClient
 import com.illustar0.zzu.network.PortalEncryption
 import com.illustar0.zzu.network.SelfServiceClient
@@ -383,6 +384,18 @@ class ClientCallsTest {
 
         assertEquals(false, result.isSuccess)
         assertEquals(JsonPrimitive("xor"), transport.calls.single().second!!["encryption"])
+    }
+
+    @Test
+    fun portalDecodesAvailableIsps() = runTest {
+        val transport = FakeTransport {
+            """[{"name": "校园网", "suffix": ""}, {"name": "中国移动", "suffix": "@cmcc"}]"""
+        }
+
+        val isps = PortalClient(rpcOver(transport)).isps()
+
+        assertEquals(listOf(IspInfo("校园网", ""), IspInfo("中国移动", "@cmcc")), isps)
+        assertEquals("isps" to null, transport.calls.single())
     }
 
     @Test

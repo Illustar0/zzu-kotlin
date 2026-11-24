@@ -24,6 +24,19 @@ public class PortalInfo(
     public val userIp: String,
 )
 
+/**
+ * 校园网 Portal 页面提供的运营商选项。
+ *
+ * @property name 运营商显示名称，如“校园网”“中国移动”。
+ * @property suffix 附加在登录账号后的运营商后缀，如 `"@cmcc"`；普通校园网通常为空字符串 `""`。
+ */
+@Poko
+@Serializable
+public class IspInfo(
+    public val name: String,
+    public val suffix: String,
+)
+
 /** Portal 登录请求的本地源地址选择方式。 */
 @Serializable
 public enum class PortalSourceAddress {

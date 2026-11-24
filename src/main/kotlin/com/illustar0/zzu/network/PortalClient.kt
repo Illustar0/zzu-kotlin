@@ -30,7 +30,7 @@ public class PortalClient internal constructor(private val rpc: ZzuRpc) : AutoCl
      * 向校园网 Portal 服务器发起终端上线认证请求（只连接 IPv4 地址）。
      *
      * 融合宽带用户须在 [account] 后自行附带运营商后缀（如中国移动 `@cmcc`、中国联通 `@unicom`、
-     * 中国电信 `@telecom`）；普通校园网账号直接传入学号或工号即可。
+     * 中国电信 `@telecom`，可通过 [isps] 查询）；普通校园网账号直接传入学号或工号即可。
      * 本函数正常返回只代表收到服务端 JSONP 响应，不代表认证通过，须检查 [PortalAuthResult.isSuccess]。
      *
      * @throws ZzuException.InvalidInput 选择 [PortalEncryption.XOR] 且任一待编码字段超过 512 个字符时。
@@ -50,6 +50,17 @@ public class PortalClient internal constructor(private val rpc: ZzuRpc) : AutoCl
             putValue("encryption", encryption)
         },
     )
+
+    /**
+     * 查询当前校园网 Portal 页面提供的运营商列表及其登录账号后缀。
+     *
+     * 若门户页面模板不含运营商选项，返回空列表。
+     *
+     * @throws ZzuException.Transport 选择 [PortalSourceAddress.USER_IP] 而 `userIp` 无法绑定为本机源地址，或网络传输失败时。
+     * @throws ZzuException.Http 服务端返回非 2xx 状态码时。
+     * @throws ZzuException.Decode 门户配置 JSONP 报文或页面路径标识解析失败时。
+     */
+    public suspend fun isps(): List<IspInfo> = rpc.fetch("isps")
 }
 
 /**
