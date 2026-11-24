@@ -12,7 +12,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * 统一身份认证（CAS）客户端，负责会话管理、短信多因素认证、个人信息查询与业务系统单点登录。
+ * 统一身份认证（CAS）客户端，负责会话管理、短信多因素认证、设备信任管理、个人信息查询与业务系统单点登录。
  *
  * 线程安全，实现 [AutoCloseable]，用完后须调用 [close] 释放原生句柄；关闭后已派生的
  * [EasClient][com.illustar0.zzu.eas.EasClient]、[EcardClient][com.illustar0.zzu.ecard.EcardClient] 以及在途调用不受影响。
@@ -170,6 +170,28 @@ public class CasClient internal constructor(
      */
     public suspend fun verifySms(code: String) {
         rpc.perform("verify_sms", buildJsonObject { put("code", code) })
+    }
+
+    /**
+     * 更新当前账号下指定设备 [deviceId] 的信任状态，需已登录。
+     *
+     * 受信任设备登录时无需多因素认证；[isTrusted] 为 `true` 表示信任该设备，为 `false` 表示取消信任。
+     *
+     * @throws ZzuException.InvalidInput [deviceId] 为空字符串时。
+     * @throws ZzuException.Authentication 尚未登录或令牌不可用时（`NOT_AUTHENTICATED` 或 `TOKEN_EXPIRED`）。
+     * @throws ZzuException.Remote 服务端拒绝更新设备信任状态时。
+     * @throws ZzuException.Decode 响应缺少有效的 `acknowleged` 字段或解析失败时。
+     * @throws ZzuException.Transport 网络传输失败时。
+     * @throws ZzuException.Http 服务端返回非 2xx 状态码时。
+     */
+    public suspend fun setDeviceTrust(deviceId: String, isTrusted: Boolean) {
+        rpc.perform(
+            "set_device_trust",
+            buildJsonObject {
+                put("deviceId", deviceId)
+                put("isTrusted", isTrusted)
+            },
+        )
     }
 
     /**

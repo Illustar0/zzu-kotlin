@@ -98,6 +98,21 @@ class ClientCallsTest {
     }
 
     @Test
+    fun casUpdatesDeviceTrustWithWireNames() = runTest {
+        val transport = FakeTransport()
+
+        CasClient(transport, rpcOver(transport)).setDeviceTrust("device-1", isTrusted = true)
+
+        assertEquals(
+            "set_device_trust" to buildJsonObject {
+                put("deviceId", "device-1")
+                put("isTrusted", true)
+            },
+            transport.calls.single(),
+        )
+    }
+
+    @Test
     fun casSendsTokensWithTheirWireNames() = runTest {
         val transport = FakeTransport()
 
