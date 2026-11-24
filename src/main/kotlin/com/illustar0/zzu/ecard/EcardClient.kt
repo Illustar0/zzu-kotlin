@@ -58,8 +58,10 @@ public class EcardClient internal constructor(private val rpc: ZzuRpc) : AutoClo
     /**
      * 查询当前账号的校园卡余额，单位为元。
      *
-     * @throws ZzuException.Authentication 尚未登录或底层 CAS 会话不可用时。
-     * @throws ZzuException.Decode 个人信息缺少余额卡片，或余额字段不是合法十进制金额时。
+     * @throws ZzuException.Authentication 尚未登录或底层 CAS 令牌不可用时。
+     * @throws ZzuException.Crypto 获取临时公钥或 SM2/SM4 加解密失败时。
+     * @throws ZzuException.Remote 远端返回业务错误时。
+     * @throws ZzuException.Decode 余额字段缺失或不是合法十进制金额时。
      * @throws ZzuException.Transport 网络传输失败时。
      */
     public suspend fun balance(): BigDecimal = rpc.fetch("balance", null, DecimalSerializer)
