@@ -24,7 +24,7 @@ import kotlinx.serialization.json.put
  * 存入系统安全存储；下次启动时依次调用 [setTokens] 与 [login]，令牌仍在可复用有效期内时不会发起网络请求。
  *
  * ```kotlin
- * val cas = CasClient("学号", "密码")
+ * val cas = CasClient("学号", "密码", "设备 ID")
  * cas.login { promptSmsCode() }
  * val eas = EasClient(cas)
  * ```
@@ -98,6 +98,9 @@ public class CasClient internal constructor(
     /** 返回当前会话是否已完成登录。 */
     public suspend fun isLoggedIn(): Boolean = rpc.fetch("is_logged_in")
 
+    /** 返回创建客户端时配置的设备 ID。 */
+    public suspend fun deviceId(): String = rpc.fetch("device_id")
+
     /**
      * 预置外部持久化的令牌对 [tokens]，并重置本地登录态与多因素认证状态。
      *
@@ -129,15 +132,6 @@ public class CasClient internal constructor(
      * [AuthenticationErrorKind.TOKEN_EXPIRED]。
      */
     public suspend fun userToken(): String = rpc.fetch("user_token")
-
-    /**
-     * 设置密码登录与多因素认证检测时上报的设备标识 [deviceId]（默认为 `"libzzu"`），并清空未完成的多因素认证状态。
-     *
-     * @throws ZzuException.InvalidInput [deviceId] 为空字符串时。
-     */
-    public suspend fun setDevice(deviceId: String) {
-        rpc.perform("set_device", buildJsonObject { put("deviceId", deviceId) })
-    }
 
     /**
      * 向服务端探测当前账号与设备是否需要多因素认证，并更新内部 MFA 状态。
@@ -210,19 +204,25 @@ public class CasClient internal constructor(
 /**
  * 创建统一身份认证客户端。
  *
- * 仅在本地初始化账号 [account]、密码 [password] 与可选配置 [configure]，不发起网络请求；
- * 实际认证须随后调用 [CasClient.login]。
+ * 仅在本地初始化账号 [account]、密码 [password]、设备标识 [deviceId] 与可选配置 [configure]，
+ * 不发起网络请求；实际认证须随后调用 [CasClient.login]。
  *
+ * [deviceId] 可以是任意包含非空白字符的字符串，但本质上是认证凭据，应保证唯一且难以预测；
+ * 密码登录与多因素认证探测都会上报该值。
+ *
+ * @throws ZzuException.InvalidInput [deviceId] 为空或仅含空白字符时。
  * @throws ZzuException 运行时初始化或配置校验失败时。
  */
 public fun CasClient(
     account: String,
     password: String,
+    deviceId: String,
     configure: ZzuClientConfig.() -> Unit = {},
 ): CasClient {
     val config = nativeConfig(configure) {
         put("account", account)
         put("password", password)
+        put("deviceId", deviceId)
     }
     return CasClient(nativeCasTransport(config))
 }

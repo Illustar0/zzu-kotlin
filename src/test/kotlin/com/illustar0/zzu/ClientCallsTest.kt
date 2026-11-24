@@ -88,6 +88,16 @@ class ClientCallsTest {
     }
 
     @Test
+    fun casReadsConfiguredDeviceId() = runTest {
+        val transport = FakeTransport { "\"device-123\"" }
+
+        val deviceId = CasClient(transport, rpcOver(transport)).deviceId()
+
+        assertEquals("device-123", deviceId)
+        assertEquals("device_id" to null, transport.calls.single())
+    }
+
+    @Test
     fun casSendsTokensWithTheirWireNames() = runTest {
         val transport = FakeTransport()
 

@@ -43,7 +43,7 @@ import org.junit.Assume.assumeTrue
 
 /** 用真实的桌面版 libzzu 走完 JNA 与回调链路，全部离线。 */
 class NativeClientTest {
-    private val lazyCas = lazy { CasClient("", "") { timeout = 5.seconds } }
+    private val lazyCas = lazy { CasClient("", "", "test-device") { timeout = 5.seconds } }
     private val cas by lazyCas
 
     @BeforeTest
@@ -63,7 +63,14 @@ class NativeClientTest {
     @Test
     fun asyncCallsComeBackThroughTheCallback() = runTest {
         assertFalse(cas.isLoggedIn())
+        assertEquals("test-device", cas.deviceId())
         assertNull(cas.tokens())
+    }
+
+    @Test
+    fun blankCasDeviceIdIsRejectedSynchronously() {
+        assertFailsWith<ZzuException.InvalidInput> { CasClient("", "", "") }
+        assertFailsWith<ZzuException.InvalidInput> { CasClient("", "", "   ") }
     }
 
     @Test
