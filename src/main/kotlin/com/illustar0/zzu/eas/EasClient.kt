@@ -4,12 +4,11 @@ import com.illustar0.zzu.ZzuException
 import com.illustar0.zzu.cas.CasClient
 import com.illustar0.zzu.internal.ZzuRpc
 import com.illustar0.zzu.internal.fetch
-import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * 本科教务系统（EAMS）客户端，用于查询学期校历、教学周课表与校历周次。
+ * 本科教务系统（EAMS）客户端，用于查询学期校历与学期完整课表。
  *
  * 共享 [CasClient] 的统一身份认证会话与操作时限，线程安全，实现 [AutoCloseable]，用完后须调用 [close] 释放句柄，
  * 在途调用不受影响。只读查询方法可并发执行，[login] 与 [logout] 与之互斥同步。
@@ -48,7 +47,7 @@ public class EasClient internal constructor(private val rpc: ZzuRpc) : AutoClose
     public suspend fun currentSemester(): Semester = rpc.fetch("current_semester")
 
     /**
-     * 查询教务系统中的全部学期列表。
+     * 查询当前学生可见的全部学期列表。
      *
      * @throws ZzuException.Authentication 教务客户端尚未登录或 CAS 令牌不可用时。
      * @throws ZzuException.Transport 网络传输失败时。
@@ -58,49 +57,29 @@ public class EasClient internal constructor(private val rpc: ZzuRpc) : AutoClose
     public suspend fun semesters(): List<Semester> = rpc.fetch("semesters")
 
     /**
-     * 查询 [semesterId] 指定学期按校历排列的完整教学周课表；[semesterId] 为 `null` 时取 [currentSemester]。
+     * 查询 [semesterId] 指定学期的完整课表；[semesterId] 为 `null` 时取 [currentSemester]。
      *
-     * 查询当前学期时直接复用登录缓存的教学周序号；查询其他学期时会先拉取学期列表获取校历周次。
+     * 当前学期直接复用登录时缓存的学期元数据，其他学期会先拉取学期列表。
+     * [includeExperiments] 控制是否包含实验系统排课，默认为 `true`。
+     * 返回的 [Timetable] 包含学期校历、全部教学班与按时间升序排列的排课场次；
+     * 按周查看、冲突检测与日历导出均在本地完成，不发起网络请求。
      *
      * @throws ZzuException.Authentication 教务客户端尚未登录或 CAS 令牌不可用时。
      * @throws ZzuException.NotFound 指定的 [semesterId] 在学期列表中不存在时。
+     * @throws ZzuException.Remote 远端返回业务错误状态时。
      * @throws ZzuException.Decode 课表时间、节次或响应解析校验失败时。
      * @throws ZzuException.Transport 网络传输失败时。
      */
-    public suspend fun teachingWeeks(semesterId: SemesterId? = null): List<TeachingWeek> =
-        rpc.fetch("teaching_weeks", buildJsonObject { put("semesterId", semesterId?.value) })
-
-    /**
-     * 按从 1 开始的教学周序号 [week]（对应 [TeachingWeek.weekIndex]）查询单周课表；
-     * [semesterId] 为 `null` 时取当前学期。
-     *
-     * @throws ZzuException.InvalidInput [week] 小于 1 或目标学期不存在该教学周时。
-     * @throws ZzuException.Authentication 教务客户端尚未登录或 CAS 令牌不可用时。
-     * @throws ZzuException.NotFound 指定的 [semesterId] 在学期列表中不存在时。
-     * @throws ZzuException.Decode 课表解析校验失败时。
-     * @throws ZzuException.Transport 网络传输失败时。
-     */
-    public suspend fun teachingWeek(week: Int, semesterId: SemesterId? = null): TeachingWeek =
-        rpc.fetch(
-            "teaching_week",
-            buildJsonObject {
-                put("week", week)
-                put("semesterId", semesterId?.value)
-            },
-        )
-
-    /**
-     * 查询公历日期 [date] 在校历中对应的教学周序号（从 1 开始）；假期等非教学周返回 `null`。
-     *
-     * 内部先将 [date] 换算为所在 ISO 周的周一再查询，以绕过上游校历接口在秋季学期跨年后周二至周日少算 1 周的缺陷。
-     *
-     * @throws ZzuException.Authentication 教务客户端尚未登录或 CAS 令牌不可用时。
-     * @throws ZzuException.Remote 校历接口返回业务错误时。
-     * @throws ZzuException.Decode 周次字段不是正整数或响应解析失败时。
-     * @throws ZzuException.Transport 网络传输失败时。
-     */
-    public suspend fun weekIndex(date: LocalDate): Int? =
-        rpc.fetch("week_index", buildJsonObject { put("date", date.toString()) })
+    public suspend fun timetable(
+        semesterId: SemesterId? = null,
+        includeExperiments: Boolean = true,
+    ): Timetable = rpc.fetch(
+        "timetable",
+        buildJsonObject {
+            put("semesterId", semesterId?.value)
+            put("includeExperiments", includeExperiments)
+        },
+    )
 }
 
 /**

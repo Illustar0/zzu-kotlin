@@ -13,6 +13,7 @@ import com.illustar0.zzu.ecard.PaymentDevice
 import com.illustar0.zzu.ecard.RechargeOrder
 import com.illustar0.zzu.internal.ZzuJson
 import com.illustar0.zzu.internal.ZzuRpc
+import com.illustar0.zzu.internal.ZzuTransport
 import com.illustar0.zzu.network.PortalClient
 import com.illustar0.zzu.network.PortalEncryption
 import com.illustar0.zzu.network.SelfServiceClient
@@ -27,7 +28,6 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -35,7 +35,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 class ClientCallsTest {
-    private fun TestScope.rpcOver(transport: FakeTransport) =
+    private fun TestScope.rpcOver(transport: ZzuTransport) =
         ZzuRpc(transport, StandardTestDispatcher(testScheduler))
 
     @Test
@@ -83,7 +83,8 @@ class ClientCallsTest {
 
         assertEquals(SmsChallenge("138****5678"), cas.prepareSms())
         assertEquals(SmsChallenge(null), cas.sendSms())
-        assertEquals(listOf("prepare_sms" to null, "send_sms" to null), transport.calls)
+        assertEquals(listOf("prepare_sms", "send_sms"), transport.calls.map { it.first })
+        assertTrue(transport.calls.all { it.second == null })
     }
 
     @Test
@@ -230,41 +231,20 @@ class ClientCallsTest {
     }
 
     @Test
-    fun easOmitsNothingAndPassesTypedIds() = runTest {
-        val transport = FakeTransport { "[]" }
+    fun easTimetablePassesTypedSemesterIdAndExperimentFlag() = runTest {
+        val transport = FakeTransport { TIMETABLE_JSON }
         val eas = EasClient(rpcOver(transport))
 
-        eas.teachingWeeks()
-        eas.teachingWeeks(SemesterId(7))
+        val defaultTimetable = eas.timetable()
+        eas.timetable(SemesterId(7), includeExperiments = false)
 
+        assertEquals(SemesterId(194), defaultTimetable.semester.id)
+        assertEquals(listOf("timetable", "timetable"), transport.calls.map { it.first })
         val (defaultParams, explicitParams) = transport.calls.map { it.second!! }
         assertEquals(JsonNull, defaultParams["semesterId"])
+        assertEquals(JsonPrimitive(true), defaultParams["includeExperiments"])
         assertEquals(JsonPrimitive(7L), explicitParams["semesterId"])
-    }
-
-    @Test
-    fun easTeachingWeekDecodesTheResult() = runTest {
-        val transport = FakeTransport { TEACHING_WEEK_JSON }
-
-        val week = EasClient(rpcOver(transport)).teachingWeek(week = 3)
-
-        assertEquals(3, week.weekIndex)
-        assertEquals("teaching_week", transport.calls.single().first)
-    }
-
-    @Test
-    fun easFormatsDatesForWeekIndex() = runTest {
-        val transport = FakeTransport { "12" }
-
-        val week = EasClient(rpcOver(transport)).weekIndex(LocalDate(2026, 3, 2))
-
-        assertEquals(12, week)
-        assertEquals("2026-03-02", transport.calls.single().second!!["date"]!!.jsonPrimitive.content)
-    }
-
-    @Test
-    fun easTreatsANullWeekIndexAsOutOfTerm() = runTest {
-        assertNull(EasClient(rpcOver(FakeTransport())).weekIndex(LocalDate(2026, 8, 1)))
+        assertEquals(JsonPrimitive(false), explicitParams["includeExperiments"])
     }
 
     @Test
@@ -352,7 +332,7 @@ class ClientCallsTest {
         val transport = FakeTransport { """{"secret": "response-secret"}""" }
 
         val failure = assertFailsWith<ZzuException.Decode> {
-            EasClient(rpcOver(transport)).teachingWeek(1)
+            EasClient(rpcOver(transport)).timetable()
         }
 
         assertTrue("response-secret" !in failure.toString(), failure.toString())

@@ -2,9 +2,9 @@ package com.illustar0.zzu
 
 import com.illustar0.zzu.cas.CasClient
 import com.illustar0.zzu.cas.SsoService
+import com.illustar0.zzu.eas.CalendarExportOptions
 import com.illustar0.zzu.eas.EasClient
-import com.illustar0.zzu.eas.TeachingWeek
-import com.illustar0.zzu.eas.toICalendar
+import com.illustar0.zzu.eas.Timetable
 import com.illustar0.zzu.ecard.EcardClient
 import com.illustar0.zzu.ecard.PaymentChannel
 import com.illustar0.zzu.ecard.RechargeOrder
@@ -162,13 +162,24 @@ class NativeClientTest {
 
     @Test
     fun decodedTimetablesRenderThroughTheNativeCalendar() {
-        val week = ZzuJson.decodeFromString<TeachingWeek>(TEACHING_WEEK_JSON)
+        val timetable = ZzuJson.decodeFromString<Timetable>(TIMETABLE_JSON)
 
-        val calendar = week.toICalendar()
+        val calendar = timetable.toICalendar(
+            CalendarExportOptions(
+                weeks = listOf(8),
+                alarmMinutesBefore = listOf(15),
+                calendarName = "我的课表",
+            ),
+        )
 
         assertTrue("BEGIN:VEVENT" in calendar, calendar)
         assertTrue("DTSTART:20261026T000000Z" in calendar, calendar)
         assertTrue("程序设计" in calendar, calendar)
+        assertTrue("X-WR-CALNAME:我的课表" in calendar, calendar)
+        assertTrue("BEGIN:VALARM" in calendar, calendar)
+        assertFailsWith<ZzuException.InvalidInput> {
+            timetable.toICalendar(CalendarExportOptions(weeks = listOf(0)))
+        }
     }
 
     @Test

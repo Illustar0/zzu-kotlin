@@ -220,8 +220,8 @@ internal object LibZzu {
 
     @JvmStatic
     external fun zzu_timetable_to_calendar(
-        weeks: ByteArray,
-        weeksLength: SizeT,
+        params: ByteArray,
+        paramsLength: SizeT,
         outPayload: PointerByReference,
     ): Int
 

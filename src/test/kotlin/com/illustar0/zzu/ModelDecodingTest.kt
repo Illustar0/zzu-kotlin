@@ -2,13 +2,17 @@ package com.illustar0.zzu
 
 import com.illustar0.zzu.cas.PersonalInfo
 import com.illustar0.zzu.cas.Tokens
-import com.illustar0.zzu.eas.Lesson
+import com.illustar0.zzu.eas.ClassOrigin
+import com.illustar0.zzu.eas.ClassSession
+import com.illustar0.zzu.eas.ExperimentProject
+import com.illustar0.zzu.eas.ScheduleState
 import com.illustar0.zzu.eas.Semester
 import com.illustar0.zzu.eas.SemesterId
-import com.illustar0.zzu.eas.TeachingWeek
-import com.illustar0.zzu.eas.day
-import com.illustar0.zzu.eas.grid
-import com.illustar0.zzu.eas.unit
+import com.illustar0.zzu.eas.SemesterSeason
+import com.illustar0.zzu.eas.SessionKind
+import com.illustar0.zzu.eas.SessionState
+import com.illustar0.zzu.eas.Timetable
+import com.illustar0.zzu.eas.locateDate
 import com.illustar0.zzu.ecard.FormField
 import com.illustar0.zzu.ecard.PaymentAction
 import com.illustar0.zzu.ecard.RechargeOrder
@@ -27,47 +31,94 @@ import kotlin.test.assertSame
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toLocalDateTime
 
 class ModelDecodingTest {
     @Test
-    fun scheduleTimesKeepTheirInstantAndFractionalSeconds() {
-        val week = ZzuJson.decodeFromString<TeachingWeek>(TEACHING_WEEK_JSON)
+    fun sessionTimesKeepTheirInstantAndFractionalSeconds() {
+        val timetable = ZzuJson.decodeFromString<Timetable>(TIMETABLE_JSON)
 
-        val schedule = week.lessons.single().schedule
+        val session = timetable.sessions.single()
 
-        assertEquals(DayOfWeek.MONDAY, schedule.weekday)
-        assertEquals(Instant.parse("2026-10-26T00:00:00Z"), schedule.startTime)
-        assertEquals(Instant.parse("2026-10-26T01:50:00.5Z"), schedule.realEndTime)
+        assertEquals(DayOfWeek.MONDAY, session.weekday)
+        assertEquals(Instant.parse("2026-10-26T00:00:00Z"), session.startTime)
+        assertEquals(Instant.parse("2026-10-26T01:50:00.5Z"), session.endTime)
         assertEquals(
             LocalDateTime(2026, 10, 26, 8, 0),
-            schedule.startTime.toLocalDateTime(ZzuTimeZone),
+            session.startTime.toLocalDateTime(ZzuTimeZone),
         )
+        assertEquals(SessionKind.THEORY, session.kind)
+        assertEquals("理论", session.kind.labelZh)
+        assertEquals(SessionState.COMPLETED, session.state)
+        assertEquals("主校区 综合楼 南101", session.displayPlace)
     }
 
     @Test
     fun zonedTimesEncodeWithTheTimeZoneJiffRequires() {
-        val week = ZzuJson.decodeFromString<TeachingWeek>(TEACHING_WEEK_JSON)
+        val timetable = ZzuJson.decodeFromString<Timetable>(TIMETABLE_JSON)
 
-        val encoded = ZzuJson.encodeToString(week)
+        val encoded = ZzuJson.encodeToString(timetable)
 
         assertContains(encoded, "2026-10-26T08:00:00+08:00[Asia/Shanghai]")
-        assertEquals(week, ZzuJson.decodeFromString(encoded))
+        assertEquals(timetable, ZzuJson.decodeFromString(encoded))
     }
 
     @Test
-    fun semesterNamesFollowKotlinConventionsOverTheWireForm() {
+    fun semesterNamesFollowKotlinConventionsAndSupportOfflineWeekMath() {
         val semester = ZzuJson.decodeFromString<Semester>(
-            """{"id": 42, "code": "2026-1", "nameZh": "秋季", "nameEn": null,
-                "schoolYear": "2026-2027", "startDate": "2026-09-01", "endDate": "2027-01-15",
-                "weekStartOnSunday": false, "countInTerm": true, "season": "AUTUMN",
-                "weekIndices": [1, 2, 3], "upstreamOnly": "ignored"}""",
+            """{"id": 194, "code": "2026-2027-1", "nameZh": "秋季", "nameEn": null,
+                "schoolYear": "2026-2027", "startDate": "2026-09-07", "endDate": "2027-01-17",
+                "weekStartOnSunday": false, "countInTerm": true, "season": "autumn",
+                "weekIndices": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+                "upstreamOnly": "ignored"}""",
         )
 
-        assertEquals(SemesterId(42), semester.id)
+        assertEquals(SemesterId(194), semester.id)
+        assertEquals(SemesterSeason.AUTUMN, semester.season)
         assertFalse(semester.startsWeekOnSunday)
-        assertEquals(listOf(1, 2, 3), semester.weekIndices)
+        assertNull(semester.weekOf(LocalDate(2026, 9, 6)))
+        assertEquals(1, semester.weekOf(LocalDate(2026, 9, 7)))
+        assertEquals(18, semester.weekOf(LocalDate(2027, 1, 5)))
+        assertEquals(19, semester.weekOf(LocalDate(2027, 1, 17)))
+        assertNull(semester.weekOf(LocalDate(2027, 1, 18)))
+        assertEquals(
+            LocalDate(2026, 11, 23)..LocalDate(2026, 11, 29),
+            semester.weekDateRange(12),
+        )
+        assertNull(semester.weekDateRange(20))
+
+        val sundayStart = Semester(
+            id = SemesterId(50),
+            code = "1997-2",
+            nameZh = "春季",
+            schoolYear = "1996-1997",
+            season = SemesterSeason("intersession"),
+            startDate = LocalDate(1997, 2, 1),
+            endDate = LocalDate(1997, 2, 15),
+            startsWeekOnSunday = true,
+            isCountedInTerm = false,
+            weekIndices = listOf(1, 2, 3),
+        )
+        assertEquals(1, sundayStart.weekOf(LocalDate(1997, 2, 1)))
+        assertEquals(2, sundayStart.weekOf(LocalDate(1997, 2, 2)))
+
+        val nonTermOverlap = Semester(
+            id = SemesterId(200),
+            code = "summer",
+            nameZh = "短学期",
+            schoolYear = "2026-2027",
+            season = SemesterSeason.SUMMER,
+            startDate = LocalDate(2026, 9, 7),
+            endDate = LocalDate(2026, 9, 20),
+            startsWeekOnSunday = false,
+            isCountedInTerm = false,
+            weekIndices = listOf(1, 2),
+        )
+        val located = listOf(nonTermOverlap, semester).locateDate(LocalDate(2026, 9, 8))
+        assertEquals(semester to 1, located)
+        assertNull(listOf(nonTermOverlap, semester).locateDate(LocalDate(2027, 2, 1)))
     }
 
     @Test
@@ -157,37 +208,93 @@ class ModelDecodingTest {
     }
 
     @Test
-    fun weekLookupReturnsTheLastOverlappingLesson() {
-        val first = lessonAt(startUnit = 1, endUnit = 2)
-        val second = lessonAt(startUnit = 2, endUnit = 3)
-        val week = TeachingWeek(3, listOf(first, second))
+    fun timetableSupportsLocalQueriesAndWeekViews() {
+        val base = ZzuJson.decodeFromString<Timetable>(TIMETABLE_JSON)
+        val timetable = sampleConflictTimetable(base)
 
-        assertSame(first, week[DayOfWeek.MONDAY, 1])
-        assertSame(second, week[DayOfWeek.MONDAY, 2])
-        assertNull(week[DayOfWeek.MONDAY, 4])
-        assertNull(week[DayOfWeek.TUESDAY, 1])
-        assertFailsWith<IllegalArgumentException> { week[DayOfWeek.MONDAY, 11] }
+        assertEquals(ClassOrigin.REGULAR, timetable.teachingClass(1001)?.origin)
+        assertEquals(ScheduleState.UNPUBLISHED, timetable.teachingClass(1002)?.scheduleState)
+        assertEquals(listOf(1002L), base.unscheduledClasses().map { it.id })
+        assertEquals(2.5, timetable.totalCredits())
+        assertEquals(listOf(1, 2, 3, 4, 5, 6, 7, 8, 10), timetable.weekIndices())
+        assertEquals(8, timetable.weekOf(LocalDate(2026, 10, 26)))
+        assertEquals("custom_kind", timetable.sessions.last().kind.labelZh)
+
+        val week = timetable.week(8)
+        assertEquals(LocalDate(2026, 10, 26)..LocalDate(2026, 11, 1), week.dateRange())
+        assertEquals(3, week.maxUnit())
+        assertEquals(2, week.day(DayOfWeek.MONDAY).size)
+        assertEquals(2, week[DayOfWeek.MONDAY, 2].size)
+        assertEquals("物理实验 - 分光计测量", week[DayOfWeek.MONDAY, 3].single().displayTitle)
+        assertEquals("物理楼 201", week[DayOfWeek.MONDAY, 3].single().displayPlace)
+        assertFailsWith<IllegalArgumentException> { timetable.week(0) }
+        assertFailsWith<IllegalArgumentException> { week[DayOfWeek.MONDAY, 0] }
     }
 
     @Test
-    fun gridIsSevenDaysOfTenUnits() {
-        val lesson = lessonAt(startUnit = 1, endUnit = 2)
-        val week = TeachingWeek(3, listOf(lesson))
+    fun timetableDetectsConflictsAndFiltersByTimeRange() {
+        val base = ZzuJson.decodeFromString<Timetable>(TIMETABLE_JSON)
+        val timetable = sampleConflictTimetable(base)
+        val extraWeekSession = timetable.sessions.last()
 
-        val grid = week.grid()
+        val conflicts = timetable.week(8).conflicts()
+        assertEquals(1, conflicts.size)
+        assertEquals(Instant.parse("2026-10-26T00:30:00Z"), conflicts.single().startTime)
+        assertEquals(Instant.parse("2026-10-26T01:50:00.5Z"), conflicts.single().endTime)
+        assertEquals(2, conflicts.single().sessions.size)
 
-        assertEquals(7, grid.size)
-        assertEquals(List(7) { 10 }, grid.map { it.size })
-        assertSame(lesson, grid[0][1])
-        assertEquals(week.day(DayOfWeek.MONDAY), grid[0])
-        assertSame(lesson, week.unit(2)[0])
+        assertEquals(2, timetable.sessionsOn(LocalDate(2026, 10, 26)).size)
+        assertEquals(
+            1,
+            timetable.sessionsBetween(
+                Instant.parse("2026-10-26T00:00:00Z"),
+                Instant.parse("2026-10-26T00:30:00Z"),
+            ).size,
+        )
+        assertFailsWith<IllegalArgumentException> {
+            val instant = Instant.parse("2026-10-26T00:00:00Z")
+            timetable.sessionsBetween(instant, instant)
+        }
+        assertEquals(2, timetable.currentSessions(Instant.parse("2026-10-26T01:00:00Z")).size)
+        assertSame(
+            extraWeekSession,
+            timetable.nextSession(Instant.parse("2026-10-26T01:00:00Z"))?.session,
+        )
     }
 
-    private fun lessonAt(startUnit: Int, endUnit: Int): Lesson {
-        val json = TEACHING_WEEK_JSON
-            .replace("\"startUnit\": 1", "\"startUnit\": $startUnit")
-            .replace("\"endUnit\": 2", "\"endUnit\": $endUnit")
-        return ZzuJson.decodeFromString<TeachingWeek>(json).lessons.single()
+    private fun sampleConflictTimetable(base: Timetable): Timetable {
+        val firstSession = base.sessions.single()
+        val overlappingExperiment = ClassSession(
+            classId = 1002,
+            scheduleGroupId = 2,
+            weekIndex = 8,
+            date = LocalDate(2026, 10, 26),
+            weekday = DayOfWeek.MONDAY,
+            startTime = Instant.parse("2026-10-26T00:30:00Z"),
+            endTime = Instant.parse("2026-10-26T02:00:00Z"),
+            startUnit = 2,
+            endUnit = 3,
+            customPlace = "物理楼 201",
+            kind = SessionKind.EXPERIMENT,
+            experimentProject = ExperimentProject(9, "E1", "分光计测量"),
+        )
+        val extraWeekSession = ClassSession(
+            classId = 1001,
+            scheduleGroupId = 3,
+            weekIndex = 10,
+            date = LocalDate(2026, 11, 9),
+            weekday = DayOfWeek.MONDAY,
+            startTime = Instant.parse("2026-11-09T00:00:00Z"),
+            endTime = Instant.parse("2026-11-09T01:50:00Z"),
+            startUnit = 1,
+            endUnit = 2,
+            kind = SessionKind("custom_kind"),
+        )
+        return Timetable(
+            semester = base.semester,
+            classes = base.classes,
+            sessions = listOf(firstSession, overlappingExperiment, extraWeekSession),
+        )
     }
 
     private fun assertContains(text: String, part: String) {

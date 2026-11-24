@@ -11,7 +11,7 @@ import kotlinx.serialization.json.put
 /**
  * 校园服务使用的标准时区（`Asia/Shanghai`，UTC+8）。
  *
- * 用于将 [Schedule][com.illustar0.zzu.eas.Schedule] 课表时刻与 [OnlineDevice.loginTime][com.illustar0.zzu.network.OnlineDevice.loginTime]
+ * 用于将 [ClassSession][com.illustar0.zzu.eas.ClassSession] 排课时刻与 [OnlineDevice.loginTime][com.illustar0.zzu.network.OnlineDevice.loginTime]
  * 等 [Instant][kotlin.time.Instant] 换算为当地时间。
  */
 public val ZzuTimeZone: TimeZone = TimeZone.of("Asia/Shanghai")

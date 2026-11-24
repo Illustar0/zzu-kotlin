@@ -1,16 +1,33 @@
 package com.illustar0.zzu.eas
 
-import com.illustar0.zzu.ZzuTimeZone
-import com.illustar0.zzu.internal.IsoDayOfWeekSerializer
-import com.illustar0.zzu.internal.ZonedInstantSerializer
-import com.illustar0.zzu.internal.ZzuJson
-import com.illustar0.zzu.internal.nativeTimetableToCalendar
 import dev.drewhamilton.poko.Poko
-import kotlin.time.Instant
-import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.daysUntil
+import kotlinx.datetime.isoDayNumber
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+
+private const val DAYS_PER_WEEK: Int = 7
+
+/**
+ * 带中英文名称与编码的通用教务命名实体，如校区、教学楼、课程性质与开课院系。
+ *
+ * @property id 实体数字 ID。
+ * @property nameZh 中文名称。
+ * @property nameEn 英文名称。
+ * @property code 教务编码。
+ */
+@Poko
+@Serializable
+public class NamedEntity(
+    public val id: Long,
+    public val nameZh: String = "",
+    public val nameEn: String? = null,
+    public val code: String = "",
+)
 
 /**
  * 教务学期数字 ID。
@@ -22,19 +39,46 @@ import kotlinx.serialization.Serializable
 public value class SemesterId(public val value: Long)
 
 /**
+ * 学期季节标识。
+ *
+ * 已知取值以 `snake_case` 常量暴露；遇到教务上游新增的其他字符串时会原样保留在 [value] 中。
+ *
+ * @property value 规范化后的季节标识文本。
+ */
+@JvmInline
+@Serializable
+public value class SemesterSeason(public val value: String) {
+    public companion object {
+        /** 春季学期。 */
+        public val SPRING: SemesterSeason = SemesterSeason("spring")
+
+        /** 秋季学期。 */
+        public val AUTUMN: SemesterSeason = SemesterSeason("autumn")
+
+        /** 夏季学期。 */
+        public val SUMMER: SemesterSeason = SemesterSeason("summer")
+
+        /** 冬季学期。 */
+        public val WINTER: SemesterSeason = SemesterSeason("winter")
+    }
+}
+
+/**
  * 教务学期校历元数据。
  *
+ * 支持在本地离线换算公历日期与教学周序号，无需发起网络请求。
+ *
  * @property id 学期 ID。
- * @property code 学期代码。
+ * @property code 学期代码，如 `"2026-2027-1"`。
  * @property nameZh 学期中文名称。
  * @property nameEn 学期英文名称。
- * @property schoolYear 所属学年标识，如 `2026-2027`。
- * @property startDate 学期起始公历日期。
- * @property endDate 学期结束公历日期。
+ * @property schoolYear 所属学年，如 `"2026-2027"`。
+ * @property season 学期季节。
+ * @property startDate 学期起始公历日期（含）。
+ * @property endDate 学期结束公历日期（含）。
  * @property startsWeekOnSunday 教学周是否以周日作为每周第一天。
  * @property isCountedInTerm 是否计入常规学期统计。
- * @property season 学期季节代码或名称。
- * @property weekIndices 本学期包含的教学周序号列表，按校历顺序排列。
+ * @property weekIndices 本学期包含的教学周序号列表，按校历顺序排列，非零且唯一。
  */
 @Poko
 @Serializable
@@ -45,213 +89,59 @@ public class Semester(
     public val nameZh: String,
     public val nameEn: String? = null,
     public val schoolYear: String,
+    public val season: SemesterSeason,
     public val startDate: LocalDate,
     public val endDate: LocalDate,
     @SerialName("weekStartOnSunday")
     public val startsWeekOnSunday: Boolean,
     @SerialName("countInTerm")
     public val isCountedInTerm: Boolean,
-    public val season: String,
     public val weekIndices: List<Int>,
-)
-
-/**
- * 单个教学周内的排课集合。
- *
- * @property weekIndex 教学周序号，从 1 开始。
- * @property lessons 本周内的所有排课记录。
- */
-@Poko
-@Serializable
-public class TeachingWeek(
-    public val weekIndex: Int,
-    public val lessons: List<Lesson>,
 ) {
     /**
-     * 查询 [day] 第 [unit] 节上的排课；若存在重叠排课则返回最后一条记录，没有排课时返回 `null`。
+     * 计算公历日期 [date] 在本学期中对应的教学周序号。
      *
-     * @throws IllegalArgumentException [unit] 不在 [UNITS] 范围内时。
+     * 当 [date] 位于本学期起止日期范围之外，或超出 [weekIndices] 覆盖范围时返回 `null`。
      */
-    public operator fun get(day: DayOfWeek, unit: Int): Lesson? {
-        require(unit in UNITS) { "节次范围为 $UNITS，实际为 $unit" }
-        return lessons.lastOrNull { lesson ->
-            val schedule = lesson.schedule
-            schedule.weekday == day && unit in schedule.startUnit..schedule.endUnit
-        }
+    public fun weekOf(date: LocalDate): Int? {
+        if (date < startDate || date > endDate) return null
+        val days = startDate.weekStart(startsWeekOnSunday)
+            .daysUntil(date.weekStart(startsWeekOnSunday))
+        return days.takeIf { it >= 0 }?.let { weekIndices.getOrNull(it / DAYS_PER_WEEK) }
     }
 
-    public companion object {
-        /** 每天包含的标准节次范围（第 1 至第 10 节）。 */
-        public val UNITS: IntRange = 1..10
+    /**
+     * 返回教学周 [weekIndex] 对应的完整 7 天公历日期闭区间；本学期不含该周次时返回 `null`。
+     *
+     * 周首日依据 [startsWeekOnSunday] 确定（周日或周一）。
+     */
+    public fun weekDateRange(weekIndex: Int): ClosedRange<LocalDate>? {
+        val position = weekIndices.indexOf(weekIndex)
+        if (position < 0) return null
+        val first = startDate.weekStart(startsWeekOnSunday)
+            .plus(position * DAYS_PER_WEEK, DateTimeUnit.DAY)
+        return first..first.plus(DAYS_PER_WEEK - 1, DateTimeUnit.DAY)
     }
 }
 
-/** 按第 1 至第 10 节的顺序返回 [day] 全天的排课槽位，长度等于 [TeachingWeek.UNITS] 的节数。 */
-public fun TeachingWeek.day(day: DayOfWeek): List<Lesson?> =
-    TeachingWeek.UNITS.map { unit -> this[day, unit] }
-
 /**
- * 按周一至周日的顺序返回第 [unit] 节在一周内的排课槽位。
+ * 在学期集合中查找公历日期 [date] 所属的学期与教学周序号。
  *
- * @throws IllegalArgumentException [unit] 不在 [TeachingWeek.UNITS] 范围内时。
+ * 多个学期包含同一日期时，优先匹配 [Semester.isCountedInTerm] 为 `true` 的常规学期；
+ * 假期等非学期日期返回 `null`。
  */
-public fun TeachingWeek.unit(unit: Int): List<Lesson?> =
-    DayOfWeek.entries.map { day -> this[day, unit] }
+public fun Iterable<Semester>.locateDate(date: LocalDate): Pair<Semester, Int>? =
+    firstNotNullOfOrNull { semester ->
+        if (semester.isCountedInTerm) semester.weekOf(date)?.let { semester to it } else null
+    } ?: firstNotNullOfOrNull { semester ->
+        if (!semester.isCountedInTerm) semester.weekOf(date)?.let { semester to it } else null
+    }
 
-/** 生成 `7 × 10`（外层按周一至周日、内层按第 1 至第 10 节）的整周二维课表网格。 */
-public fun TeachingWeek.grid(): List<List<Lesson?>> = DayOfWeek.entries.map(::day)
-
-/**
- * 将多周课表去重后导出为 `iCalendar`（`.ics`）文本，只做本地计算，无需客户端或登录。
- *
- * 按事件 UID 去重，并在当前线程同步执行；耗时随课表长度增长，整学期课表宜放到后台调度器上执行。
- *
- * @throws com.illustar0.zzu.ZzuException 课表数据不被 `libzzu` 接受时。
- */
-public fun List<TeachingWeek>.toICalendar(): String =
-    nativeTimetableToCalendar(ZzuJson.encodeToString(this))
-
-/** 将单周课表去重后导出为 `iCalendar`（`.ics`）文本，行为与异常同 [List.toICalendar]。 */
-public fun TeachingWeek.toICalendar(): String = listOf(this).toICalendar()
-
-/**
- * 课表项，将课程元数据与单次排课绑定在一起。
- *
- * @property course 课程基础元数据。
- * @property schedule 本次排课的时间、地点与授课教师详情。
- */
-@Poko
-@Serializable
-public class Lesson(
-    public val course: Course,
-    public val schedule: Schedule,
-)
-
-/**
- * 教务课程基础元数据。
- *
- * @property id 课程数字 ID。
- * @property code 课程代码。
- * @property nameZh 课程中文名称。
- * @property nameEn 课程英文名称。
- * @property credits 课程学分，实验课为 `null`。
- * @property periodInfo 学时与周次统计信息。
- */
-@Poko
-@Serializable
-public class Course(
-    public val id: Long,
-    public val code: String,
-    public val nameZh: String,
-    public val nameEn: String? = null,
-    public val credits: Double? = null,
-    public val periodInfo: PeriodInfo,
-)
-
-/**
- * 课程学时与周次统计信息。
- *
- * @property total 课程总学时。
- * @property weeks 开课总周数，实验课为 `null`。
- * @property periodsPerWeek 每周学时数，实验课为 `null`。
- */
-@Poko
-@Serializable
-public class PeriodInfo(
-    public val total: Int,
-    public val weeks: Int? = null,
-    public val periodsPerWeek: Int? = null,
-)
-
-/**
- * 单次排课的时间、地点与授课教师详情。
- *
- * 解码时由 `libzzu` 校验星期、节次（`1..10` 且起始节次小于等于结束节次）、教学周（非零）及起止时间顺序；
- * 当上游以 `0` 表示未单独指定实际时间（常见于实验课）时，[realStartTime] 与 [realEndTime] 会回退为 [startTime] 与 [endTime]。
- * 时刻须用 [ZzuTimeZone] 换算为当地时间：
- *
- * ```kotlin
- * val startsAt = schedule.realStartTime.toLocalDateTime(ZzuTimeZone).time
- * ```
- *
- * @property scheduleGroupId 排课组 ID。
- * @property date 上课公历日期。
- * @property weekday 上课星期。
- * @property startTime 课表标准开始时刻。
- * @property endTime 课表标准结束时刻。
- * @property realStartTime 实际开始时刻，未单独指定时与 [startTime] 相同。
- * @property realEndTime 实际结束时刻，未单独指定时与 [endTime] 相同。
- * @property teacherName 授课教师中文姓名。
- * @property teacherNameEn 授课教师英文姓名。
- * @property customPlace 自定义上课地点描述（无固定教室时使用）。
- * @property room 固定上课教室，未分配时为 `null`。
- * @property startUnit 起始节次，取值在 [TeachingWeek.UNITS] 内。
- * @property endUnit 结束节次，取值在 [TeachingWeek.UNITS] 内且大于等于 [startUnit]。
- * @property state 排课状态文本（如 `"已结束"`），实验课为 `null`。
- * @property weekIndex 所属教学周序号，从 1 开始。
- * @property lessonType 授课类型标识（如 `"THEORY"`），实验课为 `null`。
- * @property periods 本次排课占用的学时数，实验课为 `null`。
- */
-@Poko
-@Serializable
-@Suppress("LongParameterList") // 构造参数与 libzzu 的排课 JSON 字段一一对应。
-public class Schedule(
-    public val scheduleGroupId: Long,
-    public val date: LocalDate,
-    @Serializable(with = IsoDayOfWeekSerializer::class)
-    public val weekday: DayOfWeek,
-    @Serializable(with = ZonedInstantSerializer::class)
-    public val startTime: Instant,
-    @Serializable(with = ZonedInstantSerializer::class)
-    public val endTime: Instant,
-    @Serializable(with = ZonedInstantSerializer::class)
-    public val realStartTime: Instant,
-    @Serializable(with = ZonedInstantSerializer::class)
-    public val realEndTime: Instant,
-    public val teacherName: String,
-    public val teacherNameEn: String? = null,
-    public val customPlace: String? = null,
-    public val room: Room? = null,
-    public val startUnit: Int,
-    public val endUnit: Int,
-    public val state: String? = null,
-    public val weekIndex: Int,
-    public val lessonType: String? = null,
-    public val periods: Int? = null,
-)
-
-/**
- * 上课教室及其所属教学楼与校区信息。
- *
- * @property id 教室数字 ID。
- * @property nameZh 教室中文名称。
- * @property nameEn 教室英文名称。
- * @property building 所属教学楼。
- * @property campus 所属校区。
- */
-@Poko
-@Serializable
-public class Room(
-    public val id: Long,
-    public val nameZh: String,
-    public val nameEn: String? = null,
-    public val building: NamedEntity,
-    public val campus: NamedEntity,
-)
-
-/**
- * 带中英文名称与编码的通用教务实体，如校区、教学楼。
- *
- * @property id 实体数字 ID。
- * @property nameZh 中文名称。
- * @property nameEn 英文名称。
- * @property code 教务编码。
- */
-@Poko
-@Serializable
-public class NamedEntity(
-    public val id: Long,
-    public val nameZh: String,
-    public val nameEn: String? = null,
-    public val code: String,
-)
+private fun LocalDate.weekStart(startsOnSunday: Boolean): LocalDate {
+    val offset = if (startsOnSunday) {
+        dayOfWeek.isoDayNumber % DAYS_PER_WEEK
+    } else {
+        dayOfWeek.isoDayNumber - 1
+    }
+    return minus(offset, DateTimeUnit.DAY)
+}

@@ -14,8 +14,8 @@ internal fun nativeCheckoutUrl(params: JsonObject): String {
     return computeText { LibZzu.zzu_recharge_order_checkout_url_for(input, input.nativeSize, it) }
 }
 
-internal fun nativeTimetableToCalendar(weeks: String): String {
-    val input = weeks.encodeToByteArray()
+internal fun nativeTimetableToCalendar(params: JsonObject): String {
+    val input = params.toUtf8()
     return computeText { LibZzu.zzu_timetable_to_calendar(input, input.nativeSize, it) }
 }
 
