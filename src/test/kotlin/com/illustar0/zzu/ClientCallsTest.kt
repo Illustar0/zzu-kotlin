@@ -4,6 +4,8 @@ import com.illustar0.zzu.cas.CasClient
 import com.illustar0.zzu.cas.SmsChallenge
 import com.illustar0.zzu.cas.SsoService
 import com.illustar0.zzu.cas.Tokens
+import com.illustar0.zzu.eas.ClassroomFetchOptions
+import com.illustar0.zzu.eas.ClassroomQuery
 import com.illustar0.zzu.eas.EasClient
 import com.illustar0.zzu.eas.SemesterId
 import com.illustar0.zzu.ecard.EcardClient
@@ -28,6 +30,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -245,6 +248,47 @@ class ClientCallsTest {
         assertEquals(JsonPrimitive(true), defaultParams["includeExperiments"])
         assertEquals(JsonPrimitive(7L), explicitParams["semesterId"])
         assertEquals(JsonPrimitive(false), explicitParams["includeExperiments"])
+    }
+
+    @Test
+    fun easClassroomQueriesEncodeFlatFilterParameters() = runTest {
+        val transport = FakeTransport { method ->
+            when (method) {
+                "classroom_catalog" -> """{"campuses": [], "buildings": [], "roomTypes": [], "floors": [1, 2]}"""
+                "classroom_occupancies_page" -> """{"items": [], "page": 2, "pageSize": 20, "totalItems": 45, "totalPages": 3}"""
+                "classroom_occupancies" -> "[]"
+                else -> "null"
+            }
+        }
+        val eas = EasClient(rpcOver(transport))
+        val query = ClassroomQuery(
+            date = LocalDate(2026, 11, 24),
+            campusId = 1,
+            buildingIds = listOf(10, 20),
+            roomTypeIds = listOf(3),
+            floors = listOf(2),
+            minSeats = 30,
+            maxSeats = 120,
+        )
+
+        assertEquals(listOf(1, 2), eas.classroomCatalog().floors)
+        val page = eas.classroomOccupanciesPage(query, page = 2, pageSize = 20)
+        assertTrue(page.hasNext)
+        assertEquals(emptyList(), eas.classroomOccupancies(query, ClassroomFetchOptions(pageSize = 30, concurrency = 4)))
+
+        assertEquals(
+            listOf("classroom_catalog", "classroom_occupancies_page", "classroom_occupancies"),
+            transport.calls.map { it.first },
+        )
+        val pageParams = transport.calls[1].second!!
+        assertEquals(JsonPrimitive("2026-11-24"), pageParams["date"])
+        assertEquals(JsonPrimitive(1L), pageParams["campusId"])
+        assertEquals(JsonPrimitive(2), pageParams["page"])
+        assertEquals(JsonPrimitive(20), pageParams["pageSize"])
+
+        val allParams = transport.calls[2].second!!
+        assertEquals(JsonPrimitive(30), allParams["pageSize"])
+        assertEquals(JsonPrimitive(4), allParams["concurrency"])
     }
 
     @Test

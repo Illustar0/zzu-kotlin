@@ -4,7 +4,10 @@ import com.illustar0.zzu.cas.PersonalInfo
 import com.illustar0.zzu.cas.Tokens
 import com.illustar0.zzu.eas.ClassOrigin
 import com.illustar0.zzu.eas.ClassSession
+import com.illustar0.zzu.eas.ClassroomCatalog
+import com.illustar0.zzu.eas.ClassroomPage
 import com.illustar0.zzu.eas.ExperimentProject
+import com.illustar0.zzu.eas.RoomActivityType
 import com.illustar0.zzu.eas.ScheduleState
 import com.illustar0.zzu.eas.Semester
 import com.illustar0.zzu.eas.SemesterId
@@ -260,6 +263,52 @@ class ModelDecodingTest {
             extraWeekSession,
             timetable.nextSession(Instant.parse("2026-10-26T01:00:00Z"))?.session,
         )
+    }
+
+    @Test
+    fun classroomCatalogAndOccupancyDecodeAndCheckFreeIntervals() {
+        val catalog = ZzuJson.decodeFromString<ClassroomCatalog>(
+            """{"campuses": [{"id": 1, "code": "MAIN", "nameZh": "主校区", "enabled": true}],
+                "buildings": [{"id": 10, "code": "B1", "nameZh": "南核心", "campusId": 1, "enabled": true}],
+                "roomTypes": [{"id": 2, "code": "NORMAL", "nameZh": "普通教室", "enabled": false}],
+                "floors": [1, 2]}""",
+        )
+        assertEquals(true, catalog.campuses.single().isEnabled)
+        assertEquals(1L, catalog.buildings.single().campusId)
+        assertFalse(catalog.roomTypes.single().isEnabled)
+
+        val page = ZzuJson.decodeFromString<ClassroomPage>(
+            """{"items": [{
+                "id": 99, "code": "N101", "nameZh": "南101", "buildingId": 10, "campusNameZh": "主校区",
+                "occupations": [{
+                    "activityId": 5, "activityType": "room_borrow", "activityName": "讲座",
+                    "date": "2026-11-24",
+                    "startTime": "2026-11-24T10:00:00+08:00[Asia/Shanghai]",
+                    "endTime": "2026-11-24T12:00:00+08:00[Asia/Shanghai]",
+                    "teacherName": "教师"
+                }]
+            }], "page": 1, "pageSize": 44, "totalItems": 1, "totalPages": 1}""",
+        )
+        assertFalse(page.hasNext)
+        val room = page.items.single()
+        assertEquals(RoomActivityType.ROOM_BORROW, room.occupations.single().activityType)
+        assertEquals(
+            true,
+            room.isFreeBetween(
+                Instant.parse("2026-11-24T00:00:00Z"),
+                Instant.parse("2026-11-24T02:00:00Z"),
+            ),
+        )
+        assertFalse(
+            room.isFreeBetween(
+                Instant.parse("2026-11-24T01:30:00Z"),
+                Instant.parse("2026-11-24T02:30:00Z"),
+            ),
+        )
+        assertFailsWith<IllegalArgumentException> {
+            val instant = Instant.parse("2026-11-24T02:00:00Z")
+            room.occupationsBetween(instant, instant)
+        }
     }
 
     private fun sampleConflictTimetable(base: Timetable): Timetable {

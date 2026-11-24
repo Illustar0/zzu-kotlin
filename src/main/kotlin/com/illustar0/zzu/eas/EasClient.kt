@@ -4,11 +4,13 @@ import com.illustar0.zzu.ZzuException
 import com.illustar0.zzu.cas.CasClient
 import com.illustar0.zzu.internal.ZzuRpc
 import com.illustar0.zzu.internal.fetch
+import com.illustar0.zzu.internal.putValue
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * 本科教务系统（EAMS）客户端，用于查询学期校历与学期完整课表。
+ * 本科教务系统（EAMS）客户端，用于查询学期校历、学期完整课表以及教室占用。
  *
  * 共享 [CasClient] 的统一身份认证会话与操作时限，线程安全，实现 [AutoCloseable]，用完后须调用 [close] 释放句柄，
  * 在途调用不受影响。只读查询方法可并发执行，[login] 与 [logout] 与之互斥同步。
@@ -80,6 +82,81 @@ public class EasClient internal constructor(private val rpc: ZzuRpc) : AutoClose
             put("includeExperiments", includeExperiments)
         },
     )
+
+    /**
+     * 并发查询教室占用筛选所需的全部参照目录（校区、教学楼、教室类型与楼层）。
+     *
+     * 返回扁平列表，供界面构建筛选项，以及按 [ClassroomOccupancy.buildingId] 反查教学楼信息。
+     *
+     * @throws ZzuException.Authentication 教务客户端尚未登录或 CAS 令牌不可用时。
+     * @throws ZzuException.Remote 远端返回业务错误状态时。
+     * @throws ZzuException.Decode 目录响应解析失败时。
+     * @throws ZzuException.Transport 网络传输失败时。
+     */
+    public suspend fun classroomCatalog(): ClassroomCatalog = rpc.fetch("classroom_catalog")
+
+    /**
+     * 按页查询符合 [query] 筛选条件的教室及当日占用记录。
+     *
+     * [page] 从 1 开始，默认为 1；[pageSize] 为 `null` 时使用 [ClassroomFetchOptions.DEFAULT_PAGE_SIZE]（`44`）。
+     * 上游接口耗时随 [pageSize] 增大而非线性上升，不了解后端特性时建议保持默认值。
+     *
+     * @throws ZzuException.InvalidInput [page] 小于 1、[pageSize] 小于 1，
+     * 或 [ClassroomQuery.minSeats] 大于 [ClassroomQuery.maxSeats] 时。
+     * @throws ZzuException.Authentication 教务客户端尚未登录或 CAS 令牌不可用时。
+     * @throws ZzuException.Remote 远端返回业务错误状态时。
+     * @throws ZzuException.Decode 占用时段校验或响应解析失败时。
+     * @throws ZzuException.Transport 网络传输失败时。
+     */
+    public suspend fun classroomOccupanciesPage(
+        query: ClassroomQuery,
+        page: Int = 1,
+        pageSize: Int? = null,
+    ): ClassroomPage = rpc.fetch(
+        "classroom_occupancies_page",
+        buildJsonObject {
+            putClassroomQuery(query)
+            put("page", page)
+            pageSize?.let { put("pageSize", it) }
+        },
+    )
+
+    /**
+     * 以有界并发拉取符合 [query] 筛选条件的全部教室及当日占用记录。
+     *
+     * 内部先按 [ClassroomFetchOptions.pageSize] 拉取第 1 页获知总页数，再按 [ClassroomFetchOptions.concurrency]
+     * 并发拉取剩余分页，按页序合并并按教室 ID 去重；任一页失败会立即中止并返回错误。
+     * 不带空间筛选的整校查询在高占用时段耗时较长，建议配合校区或教学楼筛选、放宽超时，
+     * 或在需要进度展示与单页容错时改用 [classroomOccupanciesPage]。
+     *
+     * @throws ZzuException.InvalidInput [query]、[ClassroomFetchOptions.pageSize]
+     * 或 [ClassroomFetchOptions.concurrency] 参数非法时。
+     * @throws ZzuException.Authentication 教务客户端尚未登录或 CAS 令牌不可用时。
+     * @throws ZzuException.Remote 远端返回业务错误状态时。
+     * @throws ZzuException.Decode 占用时段校验或响应解析失败时。
+     * @throws ZzuException.Transport 网络传输失败时。
+     */
+    public suspend fun classroomOccupancies(
+        query: ClassroomQuery,
+        options: ClassroomFetchOptions = ClassroomFetchOptions(),
+    ): List<ClassroomOccupancy> = rpc.fetch(
+        "classroom_occupancies",
+        buildJsonObject {
+            putClassroomQuery(query)
+            put("pageSize", options.pageSize)
+            put("concurrency", options.concurrency)
+        },
+    )
+}
+
+private fun JsonObjectBuilder.putClassroomQuery(query: ClassroomQuery) {
+    put("date", query.date.toString())
+    query.campusId?.let { put("campusId", it) }
+    putValue("buildingIds", query.buildingIds)
+    putValue("roomTypeIds", query.roomTypeIds)
+    putValue("floors", query.floors)
+    query.minSeats?.let { put("minSeats", it) }
+    query.maxSeats?.let { put("maxSeats", it) }
 }
 
 /**

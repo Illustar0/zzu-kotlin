@@ -3,6 +3,8 @@ package com.illustar0.zzu
 import com.illustar0.zzu.cas.CasClient
 import com.illustar0.zzu.cas.SsoService
 import com.illustar0.zzu.eas.CalendarExportOptions
+import com.illustar0.zzu.eas.ClassroomFetchOptions
+import com.illustar0.zzu.eas.ClassroomQuery
 import com.illustar0.zzu.eas.EasClient
 import com.illustar0.zzu.eas.Timetable
 import com.illustar0.zzu.ecard.EcardClient
@@ -39,6 +41,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
+import kotlinx.datetime.LocalDate
 import org.junit.Assume.assumeTrue
 
 /** 用真实的桌面版 libzzu 走完 JNA 与回调链路，全部离线。 */
@@ -157,6 +160,25 @@ class NativeClientTest {
         assertTrue("callPaywayid=0106" in url, url)
         assertFailsWith<ZzuException.InvalidInput> {
             order.checkoutUrlFor(PaymentChannel("", "无效"))
+        }
+    }
+
+    @Test
+    fun classroomQueriesValidateParametersAndRequireLogin() = runTest {
+        EasClient(cas).use { eas ->
+            val query = ClassroomQuery(date = LocalDate(2026, 11, 24))
+            val catalogFailure = assertFailsWith<ZzuException.Authentication> { eas.classroomCatalog() }
+            assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, catalogFailure.kind)
+
+            assertFailsWith<ZzuException.InvalidInput> {
+                eas.classroomOccupanciesPage(query, page = 0)
+            }
+            assertFailsWith<ZzuException.InvalidInput> {
+                eas.classroomOccupancies(query, ClassroomFetchOptions(concurrency = 0))
+            }
+            assertFailsWith<ZzuException.InvalidInput> {
+                eas.classroomOccupanciesPage(ClassroomQuery(LocalDate(2026, 11, 24), minSeats = 100, maxSeats = 50))
+            }
         }
     }
 
