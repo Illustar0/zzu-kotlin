@@ -12,6 +12,7 @@ import com.illustar0.zzu.eas.unit
 import com.illustar0.zzu.ecard.FormField
 import com.illustar0.zzu.ecard.PaymentAction
 import com.illustar0.zzu.ecard.RechargeOrder
+import com.illustar0.zzu.internal.DecimalSerializer
 import com.illustar0.zzu.internal.ZzuJson
 import com.illustar0.zzu.network.OnlineDevice
 import com.illustar0.zzu.network.SessionId
@@ -85,14 +86,27 @@ class ModelDecodingTest {
     }
 
     @Test
-    fun moneyStaysExactAndKeepsItsScale() {
+    fun personalInfoDecodesAuthxAttributesAndRedactsSecrets() {
         val info = ZzuJson.decodeFromString<PersonalInfo>(
-            """{"uid": "u", "name": "n", "identityTypeName": "本科生", "identityTypeId": "1",
-                "organizationName": "学院", "organizationId": "2", "unreadEmailCount": 0,
-                "balance": "90071992547409.9300", "researchCount": 0}""",
+            """{"uid": "secret-uid", "name": "secret-name", "identityTypeName": "本科生",
+                "identityTypeId": "1", "organizationName": "学院", "organizationId": "2",
+                "upstreamOnly": true}""",
         )
 
-        assertEquals(BigDecimal("90071992547409.9300"), info.balance)
+        assertEquals("secret-uid", info.uid)
+        assertEquals("secret-name", info.name)
+        assertEquals("本科生", info.identityTypeName)
+        assertEquals("1", info.identityTypeId)
+        assertEquals("学院", info.organizationName)
+        assertEquals("2", info.organizationId)
+        assertFalse("secret" in info.toString(), "泄露于 $info")
+    }
+
+    @Test
+    fun moneyStaysExactAndKeepsItsScale() {
+        val amount = ZzuJson.decodeFromString(DecimalSerializer, "\"90071992547409.9300\"")
+
+        assertEquals(BigDecimal("90071992547409.9300"), amount)
     }
 
     @Test

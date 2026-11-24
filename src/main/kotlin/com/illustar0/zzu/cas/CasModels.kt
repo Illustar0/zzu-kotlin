@@ -1,8 +1,6 @@
 package com.illustar0.zzu.cas
 
-import com.illustar0.zzu.internal.DecimalSerializer
 import dev.drewhamilton.poko.Poko
-import java.math.BigDecimal
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
@@ -111,9 +109,9 @@ public class SmsChallenge(
 )
 
 /**
- * 个人基础信息与门户概览统计。
+ * 当前用户的个人身份基础信息。
  *
- * 包含学号、姓名与余额等敏感字段，[toString] 只输出 [identityTypeName] 与 [organizationName]。
+ * 包含学号、姓名等敏感字段，[toString] 只输出 [identityTypeName] 与 [organizationName]。
  *
  * @property uid 学号或工号（用户唯一标识）。
  * @property name 用户姓名。
@@ -121,13 +119,9 @@ public class SmsChallenge(
  * @property identityTypeId 身份类别编码。
  * @property organizationName 所属院系或组织机构名称。
  * @property organizationId 所属院系或组织机构编码。
- * @property unreadEmailCount 未读校园邮件数量。
- * @property balance 校园卡账户余额，单位为元。
- * @property researchCount 科研信息数量。
  */
 @Poko
 @Serializable
-@Suppress("LongParameterList") // 构造参数与 libzzu 的个人信息 JSON 字段一一对应。
 public class PersonalInfo(
     public val uid: String,
     public val name: String,
@@ -135,10 +129,6 @@ public class PersonalInfo(
     public val identityTypeId: String,
     public val organizationName: String,
     public val organizationId: String,
-    public val unreadEmailCount: Long,
-    @Serializable(with = DecimalSerializer::class)
-    public val balance: BigDecimal,
-    public val researchCount: Long,
 ) {
     override fun toString(): String =
         "PersonalInfo(identityTypeName=$identityTypeName, organizationName=$organizationName)"

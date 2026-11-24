@@ -215,12 +215,13 @@ public class CasClient internal constructor(
     }
 
     /**
-     * 查询当前用户的个人基础属性与门户概览卡片数据，需已登录。
+     * 查询当前用户的个人身份信息，需已登录。
      *
      * @throws ZzuException.Authentication 尚未登录或令牌不可用时（`NOT_AUTHENTICATED` 或 `TOKEN_EXPIRED`）。
      * @throws ZzuException.Transport 网络传输失败时。
      * @throws ZzuException.Http 服务端返回非 2xx 状态码时。
-     * @throws ZzuException.Decode 个人信息或卡片结构不符时。
+     * @throws ZzuException.Remote 认证服务返回业务错误状态时。
+     * @throws ZzuException.Decode 个人信息结构不符时。
      */
     public suspend fun userInfo(): PersonalInfo = rpc.fetch("user_info")
 
