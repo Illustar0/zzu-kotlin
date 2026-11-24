@@ -16,6 +16,7 @@ import com.illustar0.zzu.ecard.RechargeOrder
 import com.illustar0.zzu.internal.ZzuJson
 import com.illustar0.zzu.internal.ZzuRpc
 import com.illustar0.zzu.internal.ZzuTransport
+import com.illustar0.zzu.mail.MailClient
 import com.illustar0.zzu.network.PortalClient
 import com.illustar0.zzu.network.PortalEncryption
 import com.illustar0.zzu.network.SelfServiceClient
@@ -229,8 +230,33 @@ class ClientCallsTest {
 
         EasClient(cas)
         EcardClient(cas)
+        MailClient(cas)
 
-        assertEquals(2, transport.derivedTransports)
+        assertEquals(3, transport.derivedTransports)
+    }
+
+    @Test
+    fun mailClientDispatchesLifecycleAndQueryMethods() = runTest {
+        val transport = FakeTransport { method ->
+            when (method) {
+                "is_logged_in" -> "true"
+                "webmail_url" -> "\"https://mail.v.zzu.edu.cn/coremail/main.jsp?sid=test\""
+                "unread_count" -> "7"
+                else -> "null"
+            }
+        }
+        val mail = MailClient(rpcOver(transport))
+
+        mail.login()
+        assertTrue(mail.isLoggedIn())
+        assertEquals("https://mail.v.zzu.edu.cn/coremail/main.jsp?sid=test", mail.webmailUrl())
+        assertEquals(7, mail.unreadCount())
+        mail.logout()
+
+        assertEquals(
+            listOf("login", "is_logged_in", "webmail_url", "unread_count", "logout"),
+            transport.calls.map { it.first },
+        )
     }
 
     @Test

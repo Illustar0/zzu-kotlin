@@ -66,6 +66,14 @@ private class NativeCasClient(private val client: NativeClient) :
             LibZzu::zzu_ecard_free,
         )
     }
+
+    override fun newMailTransport(): ZzuTransport = client.withHandle { cas ->
+        NativeClient(
+            newHandle { outMail, outError -> LibZzu.zzu_mail_new(cas, outMail, outError) },
+            LibZzu::zzu_mail_call,
+            LibZzu::zzu_mail_free,
+        )
+    }
 }
 
 internal fun nativeCasTransport(config: JsonObject): CasTransport {

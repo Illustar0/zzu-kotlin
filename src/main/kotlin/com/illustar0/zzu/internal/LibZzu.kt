@@ -163,6 +163,27 @@ internal object LibZzu {
     ): Int
 
     @JvmStatic
+    external fun zzu_mail_new(
+        cas: Pointer,
+        outMail: PointerByReference,
+        outError: PointerByReference,
+    ): Int
+
+    @JvmStatic
+    external fun zzu_mail_free(mail: Pointer)
+
+    @JvmStatic
+    external fun zzu_mail_call(
+        mail: Pointer,
+        method: String,
+        params: ByteArray?,
+        paramsLength: SizeT,
+        callback: NativeCallback,
+        userData: Pointer,
+        outCall: PointerByReference,
+    ): Int
+
+    @JvmStatic
     external fun zzu_portal_discover(
         runtime: Pointer,
         options: ByteArray,

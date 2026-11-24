@@ -12,6 +12,7 @@ import com.illustar0.zzu.ecard.PaymentChannel
 import com.illustar0.zzu.ecard.RechargeOrder
 import com.illustar0.zzu.ecard.RoomId
 import com.illustar0.zzu.internal.ZzuJson
+import com.illustar0.zzu.mail.MailClient
 import com.illustar0.zzu.network.PortalClient
 import com.illustar0.zzu.network.PortalSourceAddress
 import com.illustar0.zzu.network.SelfServiceClient
@@ -126,14 +127,19 @@ class NativeClientTest {
     fun derivedClientsOutliveTheCasHandle() = runTest {
         val eas = EasClient(cas)
         val ecard = EcardClient(cas)
+        val mail = MailClient(cas)
 
         cas.close()
 
         val failure = assertFailsWith<ZzuException.Authentication> { eas.login() }
         assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, failure.kind)
         assertFalse(ecard.isLoggedIn())
+        assertFalse(mail.isLoggedIn())
+        val mailFailure = assertFailsWith<ZzuException.Authentication> { mail.unreadCount() }
+        assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, mailFailure.kind)
         eas.close()
         ecard.close()
+        mail.close()
     }
 
     @Test

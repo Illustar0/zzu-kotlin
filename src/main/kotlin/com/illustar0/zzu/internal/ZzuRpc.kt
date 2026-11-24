@@ -18,11 +18,13 @@ internal interface ZzuTransport : AutoCloseable {
     override fun close()
 }
 
-/** CAS 客户端的通道，额外负责派生共享其会话的教务与校园卡通道。 */
+/** CAS 客户端的通道，额外负责派生共享其会话的教务、校园卡与校园邮箱通道。 */
 internal interface CasTransport : ZzuTransport {
     fun newEasTransport(): ZzuTransport
 
     fun newEcardTransport(): ZzuTransport
+
+    fun newMailTransport(): ZzuTransport
 }
 
 /** 在 [ZzuTransport] 之上解码结果。 */

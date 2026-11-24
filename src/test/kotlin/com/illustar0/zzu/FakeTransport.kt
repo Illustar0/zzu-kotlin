@@ -19,6 +19,8 @@ internal class FakeTransport(private val respond: (String) -> String = { "null" 
 
     override fun newEcardTransport(): ZzuTransport = also { derivedTransports++ }
 
+    override fun newMailTransport(): ZzuTransport = also { derivedTransports++ }
+
     override fun close() {
         isClosed = true
     }

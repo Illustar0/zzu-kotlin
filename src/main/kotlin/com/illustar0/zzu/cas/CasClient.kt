@@ -15,7 +15,8 @@ import kotlinx.serialization.json.put
  * 统一身份认证（CAS）客户端，负责会话管理、短信多因素认证、设备信任管理、个人信息查询与业务系统单点登录。
  *
  * 线程安全，实现 [AutoCloseable]，用完后须调用 [close] 释放原生句柄；关闭后已派生的
- * [EasClient][com.illustar0.zzu.eas.EasClient]、[EcardClient][com.illustar0.zzu.ecard.EcardClient] 以及在途调用不受影响。
+ * [EasClient][com.illustar0.zzu.eas.EasClient]、[EcardClient][com.illustar0.zzu.ecard.EcardClient]、
+ * [MailClient][com.illustar0.zzu.mail.MailClient] 以及在途调用不受影响。
  * 所有挂起函数都可在主线程调用，失败时抛出 [ZzuException]；取消协程会同步取消底层 `libzzu` 调用。
  *
  * SDK 不会在后台保活，也不会在令牌失效时用缓存密码隐式重登，以免挤掉手机端官方 App 的在线会话。
@@ -88,9 +89,9 @@ public class CasClient internal constructor(
     /**
      * 清除本地缓存的令牌、多因素认证状态与登录标记（不发起网络请求）。
      *
-     * 派生的 [EasClient][com.illustar0.zzu.eas.EasClient] 与 [EcardClient][com.illustar0.zzu.ecard.EcardClient]
-     * 仍保留各自的本地缓存（如 `isLoggedIn()`、`currentSemester()`），但此后触发需要 CAS 令牌的操作时会抛出
-     * [AuthenticationErrorKind.NOT_AUTHENTICATED]。
+     * 派生的 [EasClient][com.illustar0.zzu.eas.EasClient]、[EcardClient][com.illustar0.zzu.ecard.EcardClient] 与
+     * [MailClient][com.illustar0.zzu.mail.MailClient] 仍保留各自的本地缓存（如 `isLoggedIn()`、`currentSemester()`），
+     * 但此后触发需要 CAS 令牌的操作时会抛出 [AuthenticationErrorKind.NOT_AUTHENTICATED]。
      */
     public suspend fun logout() {
         rpc.perform("logout")
