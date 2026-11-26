@@ -1,10 +1,14 @@
+import dev.detekt.gradle.Detekt
 import java.io.OutputStream
 import java.security.DigestInputStream
 import java.security.MessageDigest
 import java.util.HexFormat
+import org.gradle.jvm.tasks.Jar
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.multiplatform.library)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.poko)
     alias(libs.plugins.detekt)
@@ -14,45 +18,70 @@ plugins {
 group = "com.illustar0"
 version = providers.gradleProperty("releaseVersion").orElse("0.1.0").get()
 
-android {
-    namespace = "com.illustar0.zzu"
-    compileSdk = 37
+kotlin {
+    explicitApi()
+    applyDefaultHierarchyTemplate()
 
-    defaultConfig {
+    android {
+        namespace = "com.illustar0.zzu"
+        compileSdk = 37
         minSdk = 26
-        consumerProguardFiles("consumer-rules.pro")
         aarMetadata {
             minCompileSdk = 26
         }
+        optimization {
+            consumerKeepRules.apply {
+                publish = true
+                file("consumer-rules.pro")
+            }
+        }
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+        }
     }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+    jvm {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+        }
     }
-}
 
-kotlin {
-    explicitApi()
+    sourceSets {
+        commonMain.dependencies {
+            api(libs.kotlinx.coroutines.core)
+            api(libs.kotlinx.serialization.json)
+            api(libs.kotlinx.datetime)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
+        }
+        val jnaMain by creating {
+            dependsOn(commonMain.get())
+            dependencies {
+                compileOnly(libs.jna)
+            }
+        }
+        androidMain {
+            dependsOn(jnaMain)
+            dependencies {
+                implementation("${libs.jna.get()}@aar")
+            }
+        }
+        jvmMain {
+            dependsOn(jnaMain)
+            dependencies {
+                implementation(libs.jna)
+            }
+        }
+    }
 }
 
 detekt {
     buildUponDefaultConfig = true
 }
 
-dependencies {
-    api(libs.kotlinx.coroutines.core)
-    api(libs.kotlinx.serialization.json)
-    api(libs.kotlinx.datetime)
-
-    implementation("${libs.jna.get()}@aar")
-
-    testImplementation(kotlin("test-junit"))
-    testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.jna)
-}
-
-/** 校验 libzzu 发布包的 SHA-256，再按 [libraries] 把其中的动态库解压到 [outputDirectory]。 */
+/** 校验 `libzzu` 发布包的 SHA-256，再按 [libraries] 把目标文件解压到 [outputDirectory]。 */
 abstract class ExtractLibzzu @Inject constructor(
     private val archives: ArchiveOperations,
     private val files: FileSystemOperations,
@@ -66,7 +95,7 @@ abstract class ExtractLibzzu @Inject constructor(
     @get:PathSensitive(PathSensitivity.NAME_ONLY)
     abstract val checksumFiles: ConfigurableFileCollection
 
-    /** 发布包内的库路径（如 `libzzu-aarch64-linux-android/lib/libzzu.so`）到输出路径的映射。 */
+    /** 发布包内的文件路径（如 `libzzu-aarch64-linux-android/lib/libzzu.so`）到输出路径的映射。 */
     @get:Input
     abstract val libraries: MapProperty<String, String>
 
@@ -103,7 +132,7 @@ abstract class ExtractLibzzu @Inject constructor(
     }
 }
 
-/** 返回本机平台的 libzzu Rust 目标与动态库文件名；没有对应发布包时为 `null`。 */
+/** 返回本机平台的 `libzzu` Rust 目标与动态库文件名；没有对应发布包时为 `null`。 */
 fun desktopLibzzu(osName: String, osArch: String): Pair<String, String>? {
     val arch = when (osArch) {
         "aarch64", "arm64" -> "aarch64"
@@ -118,13 +147,24 @@ fun desktopLibzzu(osName: String, osArch: String): Pair<String, String>? {
     }
 }
 
-/** Android ABI 到 libzzu 发布包 Rust 目标的映射。 */
+/** Android ABI 到 `libzzu` 发布包 Rust 目标的映射。 */
 val androidTargets = mapOf(
     "arm64-v8a" to "aarch64-linux-android",
     "armeabi-v7a" to "armv7-linux-androideabi",
     "x86_64" to "x86_64-linux-android",
     "x86" to "i686-linux-android",
 )
+
+/** JNA 资源目录路径到 `libzzu` 发布包 Rust 目标及动态库文件名的映射。 */
+val desktopTargets = mapOf(
+    "darwin-aarch64/libzzu.dylib" to ("aarch64-apple-darwin" to "libzzu.dylib"),
+    "darwin-x86-64/libzzu.dylib" to ("x86_64-apple-darwin" to "libzzu.dylib"),
+    "win32-x86-64/zzu.dll" to ("x86_64-pc-windows-msvc" to "zzu.dll"),
+    "win32-aarch64/zzu.dll" to ("aarch64-pc-windows-msvc" to "zzu.dll"),
+    "linux-x86-64/libzzu.so" to ("x86_64-unknown-linux-gnu" to "libzzu.so"),
+    "linux-aarch64/libzzu.so" to ("aarch64-unknown-linux-gnu" to "libzzu.so"),
+)
+
 val desktopLibrary = desktopLibzzu(
     providers.systemProperty("os.name").get(),
     providers.systemProperty("os.arch").get(),
@@ -153,10 +193,28 @@ androidComponents.onVariants { variant ->
     variant.sources.jniLibs?.addGeneratedSourceDirectory(extractAndroidLibzzu, ExtractLibzzu::outputDirectory)
 }
 
-// 本机 JVM 测试加载桌面版 libzzu；本机平台没有发布包时不设置库路径，原生集成测试随之跳过。
+val extractAllDesktopLibzzu = tasks.register<ExtractLibzzu>("extractAllDesktopLibzzu") {
+    group = "build"
+    description = "Extracts desktop libzzu shared libraries for packaging into the JVM JAR."
+
+    val rustTargets = desktopTargets.values.map { it.first }
+    packages.from(libzzuArtifacts(rustTargets, "tar.gz"))
+    checksumFiles.from(libzzuArtifacts(rustTargets, "tar.gz.sha256"))
+    libraries = desktopTargets.entries.associate { (resourcePath, targetAndFile) ->
+        val (target, library) = targetAndFile
+        "libzzu-$target/lib/$library" to resourcePath
+    }
+    outputDirectory = layout.buildDirectory.dir("generated/jvmResources")
+}
+
+tasks.named<Jar>("jvmJar") {
+    from(extractAllDesktopLibzzu)
+}
+
+// 本机 JVM 测试仅按需解压当前平台 1 个动态库；平台没有发布包时不设置库路径，原生集成测试自动跳过。
 desktopLibrary?.let { (target, library) ->
-    val extractDesktopLibzzu = tasks.register<ExtractLibzzu>("extractDesktopLibzzu") {
-        description = "Extracts the desktop libzzu shared library for local JVM tests."
+    val extractHostDesktopLibzzu = tasks.register<ExtractLibzzu>("extractHostDesktopLibzzu") {
+        description = "Extracts the host desktop libzzu shared library for local JVM tests."
 
         packages.from(libzzuArtifacts(listOf(target), "tar.gz"))
         checksumFiles.from(libzzuArtifacts(listOf(target), "tar.gz.sha256"))
@@ -164,8 +222,8 @@ desktopLibrary?.let { (target, library) ->
         outputDirectory = layout.buildDirectory.dir("libzzu/desktop")
     }
 
-    tasks.withType<Test>().configureEach {
-        val libraryDirectory = extractDesktopLibzzu.flatMap { it.outputDirectory }
+    tasks.named<Test>("jvmTest") {
+        val libraryDirectory = extractHostDesktopLibzzu.flatMap { it.outputDirectory }
         inputs.dir(libraryDirectory)
             .withPathSensitivity(PathSensitivity.RELATIVE)
             .withPropertyName("libzzuDesktop")
@@ -175,9 +233,9 @@ desktopLibrary?.let { (target, library) ->
     }
 }
 
-// `check` 默认只挂不做类型解析的 `detekt`，依赖类型解析的规则要靠这两个任务才会执行。
+// 挂载全部源集扫描任务以及 JVM / Android 类型解析检查任务（如 `detektMainJvm`、`detektTestJvm`、`detektMainAndroid`）。
 tasks.named("check") {
-    dependsOn("detektMain", "detektTest")
+    dependsOn(tasks.withType<Detekt>())
 }
 
 mavenPublishing {
@@ -189,7 +247,7 @@ mavenPublishing {
     val projectUrl = "https://github.com/$repository"
     pom {
         name.set("zzu-kotlin")
-        description.set("Android Kotlin SDK for Zhengzhou University services")
+        description.set("Kotlin Multiplatform SDK for Zhengzhou University services")
         url.set(projectUrl)
         licenses {
             license {
