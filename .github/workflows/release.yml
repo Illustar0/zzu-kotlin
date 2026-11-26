@@ -56,7 +56,7 @@ jobs:
 
   publish:
     needs: prepare
-    runs-on: ubuntu-24.04
+    runs-on: macos-15
     timeout-minutes: 75
     permissions:
       contents: read
@@ -76,21 +76,27 @@ jobs:
           distribution: temurin
           java-version: '25'
 
-      - name: Check and assemble release AAR
-        run: ./gradlew check assembleRelease "-PreleaseVersion=$VERSION"
+      - name: Check and assemble release artifacts
+        run: ./gradlew check assembleAndroidMain jvmJar "-PreleaseVersion=$VERSION"
 
-      - name: Stage release AAR
-        run: cp build/outputs/aar/zzu-kotlin-release.aar zzu.aar
+      - name: Stage release artifacts
+        run: |
+          cp build/outputs/aar/zzu-kotlin.aar zzu-android.aar
+          cp "build/libs/zzu-kotlin-jvm-$VERSION.jar" zzu-jvm.jar
 
       - if: ${{ !github.event.repository.private }}
         uses: actions/attest@v4
         with:
-          subject-path: zzu.aar
+          subject-path: |
+            zzu-android.aar
+            zzu-jvm.jar
 
       - uses: actions/upload-artifact@v7
         with:
-          name: release-aar
-          path: zzu.aar
+          name: release-artifacts
+          path: |
+            zzu-android.aar
+            zzu-jvm.jar
           if-no-files-found: error
           compression-level: 0
 
@@ -119,7 +125,7 @@ jobs:
 
       - uses: actions/download-artifact@v8
         with:
-          name: release-aar
+          name: release-artifacts
           path: dist
 
       - uses: softprops/action-gh-release@v3
@@ -128,5 +134,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: ${{ needs.prepare.outputs.tag }}
           body_path: release-notes.md
-          files: dist/zzu.aar
+          files: |
+            dist/zzu-android.aar
+            dist/zzu-jvm.jar
           fail_on_unmatched_files: true

@@ -14,8 +14,8 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    runs-on: macos-15
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v7
@@ -42,14 +42,24 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Check and assemble AAR
+      - name: Check and assemble artifacts
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: ./gradlew check assembleRelease "-PreleaseVersion=$VERSION"
+        run: ./gradlew check assembleAndroidMain jvmJar "-PreleaseVersion=$VERSION"
+
+      - name: Stage build artifacts
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p dist
+          cp build/outputs/aar/zzu-kotlin.aar dist/zzu-android.aar
+          cp "build/libs/zzu-kotlin-jvm-$VERSION.jar" dist/zzu-jvm.jar
 
       - uses: actions/upload-artifact@v7
         with:
           name: zzu-${{ steps.version.outputs.version }}
-          path: build/outputs/aar/zzu-kotlin-release.aar
+          path: |
+            dist/zzu-android.aar
+            dist/zzu-jvm.jar
           if-no-files-found: error
           compression-level: 0
