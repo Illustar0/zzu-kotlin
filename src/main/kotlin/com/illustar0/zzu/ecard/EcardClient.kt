@@ -1,12 +1,12 @@
 package com.illustar0.zzu.ecard
 
+import com.illustar0.zzu.Decimal
 import com.illustar0.zzu.ZzuException
 import com.illustar0.zzu.cas.CasClient
 import com.illustar0.zzu.internal.DecimalSerializer
 import com.illustar0.zzu.internal.ZzuRpc
 import com.illustar0.zzu.internal.fetch
 import com.illustar0.zzu.internal.putValue
-import java.math.BigDecimal
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -64,7 +64,7 @@ public class EcardClient internal constructor(private val rpc: ZzuRpc) : AutoClo
      * @throws ZzuException.Decode 余额字段缺失或不是合法十进制金额时。
      * @throws ZzuException.Transport 网络传输失败时。
      */
-    public suspend fun balance(): BigDecimal = rpc.fetch("balance", null, DecimalSerializer)
+    public suspend fun balance(): Decimal = rpc.fetch("balance", null, DecimalSerializer)
 
     /**
      * 按上级位置编码 [parent] 逐级检索电控位置目录，结果按 `id` 升序排列。

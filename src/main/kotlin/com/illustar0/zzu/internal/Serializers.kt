@@ -1,7 +1,7 @@
 package com.illustar0.zzu.internal
 
+import com.illustar0.zzu.Decimal
 import com.illustar0.zzu.ZzuTimeZone
-import java.math.BigDecimal
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -18,13 +18,13 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
 /** 金额在 ABI 上是十进制字符串，不经过浮点数。 */
-internal object DecimalSerializer : KSerializer<BigDecimal> {
+internal object DecimalSerializer : KSerializer<Decimal> {
     override val descriptor: SerialDescriptor =
         PrimitiveSerialDescriptor("com.illustar0.zzu.Decimal", PrimitiveKind.STRING)
 
-    override fun deserialize(decoder: Decoder): BigDecimal = BigDecimal(decoder.decodeString())
+    override fun deserialize(decoder: Decoder): Decimal = Decimal.parse(decoder.decodeString())
 
-    override fun serialize(encoder: Encoder, value: BigDecimal) {
+    override fun serialize(encoder: Encoder, value: Decimal) {
         encoder.encodeString(value.toPlainString())
     }
 }

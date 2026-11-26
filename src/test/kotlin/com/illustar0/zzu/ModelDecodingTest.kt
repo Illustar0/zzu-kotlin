@@ -23,7 +23,6 @@ import com.illustar0.zzu.internal.DecimalSerializer
 import com.illustar0.zzu.internal.ZzuJson
 import com.illustar0.zzu.network.OnlineDevice
 import com.illustar0.zzu.network.SessionId
-import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -160,7 +159,9 @@ class ModelDecodingTest {
     fun moneyStaysExactAndKeepsItsScale() {
         val amount = ZzuJson.decodeFromString(DecimalSerializer, "\"90071992547409.9300\"")
 
-        assertEquals(BigDecimal("90071992547409.9300"), amount)
+        assertEquals(Decimal.parse("90071992547409.9300"), amount)
+        assertEquals(4, amount.scale)
+        assertEquals("90071992547409.9300", amount.toPlainString())
     }
 
     @Test

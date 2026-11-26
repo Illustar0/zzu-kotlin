@@ -22,7 +22,6 @@ import com.illustar0.zzu.network.PortalClient
 import com.illustar0.zzu.network.PortalEncryption
 import com.illustar0.zzu.network.SelfServiceClient
 import com.illustar0.zzu.network.SessionId
-import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -327,7 +326,8 @@ class ClientCallsTest {
     fun ecardBalanceIsExact() = runTest {
         val balance = EcardClient(rpcOver(FakeTransport { "\"12.30\"" })).balance()
 
-        assertEquals(BigDecimal("12.30"), balance)
+        assertEquals(Decimal.parse("12.30"), balance)
+        assertEquals("12.30", balance.toPlainString())
     }
 
     @Test
