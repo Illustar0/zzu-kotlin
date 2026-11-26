@@ -5,6 +5,7 @@ import java.security.MessageDigest
 import java.util.HexFormat
 import org.gradle.jvm.tasks.Jar
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -18,67 +19,33 @@ plugins {
 group = "com.illustar0"
 version = providers.gradleProperty("releaseVersion").orElse("0.1.0").get()
 
-kotlin {
-    explicitApi()
-    applyDefaultHierarchyTemplate()
+/** 为单个 Apple 目标生成指向解压后 `libzzu.h` 与 `libzzu.a` 的 `cinterop` `.def` 文件。 */
+abstract class GenerateLibzzuDef : DefaultTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val extractedDirectory: DirectoryProperty
 
-    android {
-        namespace = "com.illustar0.zzu"
-        compileSdk = 37
-        minSdk = 26
-        aarMetadata {
-            minCompileSdk = 26
-        }
-        optimization {
-            consumerKeepRules.apply {
-                publish = true
-                file("consumer-rules.pro")
-            }
-        }
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
-        }
+    @get:OutputFile
+    abstract val definitionFile: RegularFileProperty
+
+    @TaskAction
+    fun generate() {
+        val root = extractedDirectory.get().asFile
+        val includeDir = root.resolve("include").absolutePath
+        val libDir = root.resolve("lib").absolutePath
+        val content = """
+            package = com.illustar0.zzu.internal.cinterop
+            headers = libzzu.h
+            headerFilter = libzzu.h
+            staticLibraries = libzzu.a
+            libraryPaths = "$libDir"
+            compilerOpts = "-I$includeDir"
+            linkerOpts = -framework Security -framework CoreFoundation -liconv
+        """.trimIndent() + "\n"
+        val output = definitionFile.get().asFile
+        output.parentFile.mkdirs()
+        output.writeText(content)
     }
-
-    jvm {
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
-        }
-    }
-
-    sourceSets {
-        commonMain.dependencies {
-            api(libs.kotlinx.coroutines.core)
-            api(libs.kotlinx.serialization.json)
-            api(libs.kotlinx.datetime)
-        }
-        commonTest.dependencies {
-            implementation(kotlin("test"))
-            implementation(libs.kotlinx.coroutines.test)
-        }
-        val jnaMain by creating {
-            dependsOn(commonMain.get())
-            dependencies {
-                compileOnly(libs.jna)
-            }
-        }
-        androidMain {
-            dependsOn(jnaMain)
-            dependencies {
-                implementation("${libs.jna.get()}@aar")
-            }
-        }
-        jvmMain {
-            dependsOn(jnaMain)
-            dependencies {
-                implementation(libs.jna)
-            }
-        }
-    }
-}
-
-detekt {
-    buildUponDefaultConfig = true
 }
 
 /** 校验 `libzzu` 发布包的 SHA-256，再按 [libraries] 把目标文件解压到 [outputDirectory]。 */
@@ -132,6 +99,117 @@ abstract class ExtractLibzzu @Inject constructor(
     }
 }
 
+fun libzzuArtifacts(targets: Collection<String>, extension: String): Configuration {
+    val libzzu = libs.libzzu.get()
+    val coordinates = "${libzzu.group}:${libzzu.name}:${libzzu.version}"
+    val artifacts = targets.map { target -> dependencies.create("$coordinates:$target@$extension") }
+    return configurations.detachedConfiguration(*artifacts.toTypedArray())
+}
+
+kotlin {
+    explicitApi()
+    applyDefaultHierarchyTemplate()
+
+    android {
+        namespace = "com.illustar0.zzu"
+        compileSdk = 37
+        minSdk = 26
+        aarMetadata {
+            minCompileSdk = 26
+        }
+        optimization {
+            consumerKeepRules.apply {
+                publish = true
+                file("consumer-rules.pro")
+            }
+        }
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+        }
+    }
+
+    jvm {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+        }
+    }
+
+    val appleTargets = listOf(
+        iosArm64() to "aarch64-apple-ios",
+        iosSimulatorArm64() to "aarch64-apple-ios-sim",
+        iosX64() to "x86_64-apple-ios",
+        macosArm64() to "aarch64-apple-darwin",
+        macosX64() to "x86_64-apple-darwin",
+    )
+
+    appleTargets.forEach { (kotlinTarget, rustTarget) ->
+        val targetSuffix = kotlinTarget.name.replaceFirstChar(Char::uppercaseChar)
+        val extractTask = tasks.register<ExtractLibzzu>("extract${targetSuffix}Libzzu") {
+            group = "build"
+            description = "Extracts static libzzu and headers for ${kotlinTarget.name}."
+
+            packages.from(libzzuArtifacts(listOf(rustTarget), "tar.gz"))
+            checksumFiles.from(libzzuArtifacts(listOf(rustTarget), "tar.gz.sha256"))
+            libraries = mapOf(
+                "libzzu-$rustTarget/include/libzzu.h" to "include/libzzu.h",
+                "libzzu-$rustTarget/lib/libzzu.a" to "lib/libzzu.a",
+            )
+            outputDirectory = layout.buildDirectory.dir("generated/libzzu/${kotlinTarget.name}")
+        }
+
+        val generateDefTask = tasks.register<GenerateLibzzuDef>("generate${targetSuffix}LibzzuDef") {
+            description = "Generates cinterop definition file for ${kotlinTarget.name}."
+
+            extractedDirectory.set(extractTask.flatMap { it.outputDirectory })
+            definitionFile.set(layout.buildDirectory.file("generated/cinterop/${kotlinTarget.name}/libzzu.def"))
+        }
+
+        val interop = kotlinTarget.compilations.getByName("main").cinterops.create("libzzu") {
+            definitionFile.set(generateDefTask.flatMap { it.definitionFile })
+        }
+
+        tasks.named(interop.interopProcessingTaskName) {
+            inputs.dir(extractTask.flatMap { it.outputDirectory })
+                .withPathSensitivity(PathSensitivity.RELATIVE)
+                .withPropertyName("libzzuStatic")
+        }
+    }
+
+    sourceSets {
+        commonMain.dependencies {
+            api(libs.kotlinx.coroutines.core)
+            api(libs.kotlinx.serialization.json)
+            api(libs.kotlinx.datetime)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
+        }
+        val jnaMain = create("jnaMain") {
+            dependsOn(commonMain.get())
+            dependencies {
+                compileOnly(libs.jna)
+            }
+        }
+        androidMain {
+            dependsOn(jnaMain)
+            dependencies {
+                implementation("${libs.jna.get()}@aar")
+            }
+        }
+        jvmMain {
+            dependsOn(jnaMain)
+            dependencies {
+                implementation(libs.jna)
+            }
+        }
+    }
+}
+
+detekt {
+    buildUponDefaultConfig = true
+}
+
 /** 返回本机平台的 `libzzu` Rust 目标与动态库文件名；没有对应发布包时为 `null`。 */
 fun desktopLibzzu(osName: String, osArch: String): Pair<String, String>? {
     val arch = when (osArch) {
@@ -169,13 +247,6 @@ val desktopLibrary = desktopLibzzu(
     providers.systemProperty("os.name").get(),
     providers.systemProperty("os.arch").get(),
 )
-
-fun libzzuArtifacts(targets: Collection<String>, extension: String): Configuration {
-    val libzzu = libs.libzzu.get()
-    val coordinates = "${libzzu.group}:${libzzu.name}:${libzzu.version}"
-    val artifacts = targets.map { target -> dependencies.create("$coordinates:$target@$extension") }
-    return configurations.detachedConfiguration(*artifacts.toTypedArray())
-}
 
 val extractAndroidLibzzu = tasks.register<ExtractLibzzu>("extractAndroidLibzzu") {
     group = "build"
@@ -231,6 +302,15 @@ desktopLibrary?.let { (target, library) ->
             CommandLineArgumentProvider { listOf("-Djna.library.path=${libraryDirectory.get().asFile.path}") },
         )
     }
+}
+
+val hasIosSimulator = providers.exec {
+    isIgnoreExitValue = true
+    commandLine("xcrun", "simctl", "list", "devices", "available")
+}.standardOutput.asText.map { output -> "iPhone" in output }
+
+tasks.withType<KotlinNativeSimulatorTest>().configureEach {
+    onlyIf("本机已安装可用的 iOS Simulator 设备") { hasIosSimulator.get() }
 }
 
 // 挂载全部源集扫描任务以及 JVM / Android 类型解析检查任务（如 `detektMainJvm`、`detektTestJvm`、`detektMainAndroid`）。
