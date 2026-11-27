@@ -326,6 +326,16 @@ class ClientCallsTest {
     }
 
     @Test
+    fun easQueriesExamsWithoutParameters() = runTest {
+        val transport = FakeTransport { """[{"courseNameZh": "操作系统"}]""" }
+
+        val exams = EasClient(rpcOver(transport)).exams()
+
+        assertEquals("操作系统", exams.single().courseNameZh)
+        assertEquals("exams" to null, transport.calls.single())
+    }
+
+    @Test
     fun easClassroomQueriesEncodeFlatFilterParameters() = runTest {
         val transport = FakeTransport { method ->
             when (method) {

@@ -10,7 +10,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * 本科教务系统（EAMS）客户端，用于查询学期校历、学期完整课表、成绩单与绩点排名以及教室占用。
+ * 本科教务系统（EAMS）客户端，用于查询学期校历、学期完整课表、成绩单与绩点排名、考试安排以及教室占用。
  *
  * 共享 [CasClient] 的统一身份认证会话与操作时限，线程安全，实现 [AutoCloseable]，用完后须调用 [close] 释放句柄，
  * 在途调用不受影响。只读查询方法可并发执行，[login] 与 [logout] 与之互斥同步。
@@ -18,6 +18,7 @@ import kotlinx.serialization.json.put
  * 除 [login]、[logout]、[isLoggedIn] 外的方法都要求先完成 [login]。
  * 所有挂起函数都可在主线程调用，失败时抛出 [ZzuException]；取消协程会同步取消底层 `libzzu` 调用。
  */
+@Suppress("TooManyFunctions") // 同一教务会话的操作集中在一个客户端，保持现有公开 API。
 public class EasClient internal constructor(private val rpc: ZzuRpc) : AutoCloseable by rpc {
     /**
      * 验证教务门户会话并拉取、缓存当前学期元数据，需先完成 [CasClient.login]。
@@ -95,6 +96,18 @@ public class EasClient internal constructor(private val rpc: ZzuRpc) : AutoClose
      * @throws ZzuException.Transport 网络传输失败时。
      */
     public suspend fun transcript(): Transcript = rpc.fetch("transcript")
+
+    /**
+     * 查询当前学生尚未结束的待考安排列表。
+     *
+     * 已结束的历史考试不在上游移动端接口返回范围内。结果按考试开始时间升序排列，时间待定的条目排在末尾。
+     *
+     * @throws ZzuException.Authentication 教务客户端尚未登录或 CAS 令牌不可用时。
+     * @throws ZzuException.Remote 远端返回业务错误状态时。
+     * @throws ZzuException.Decode 考试时间校验或响应解析失败时。
+     * @throws ZzuException.Transport 网络传输失败时。
+     */
+    public suspend fun exams(): List<Exam> = rpc.fetch("exams")
 
     /**
      * 并发查询教室占用筛选所需的全部参照目录（校区、教学楼、教室类型、楼层与标准节次作息）。

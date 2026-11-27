@@ -11,6 +11,7 @@ import com.illustar0.zzu.eas.ClassroomCatalog
 import com.illustar0.zzu.eas.ClassroomPage
 import com.illustar0.zzu.eas.CourseUnit
 import com.illustar0.zzu.eas.DayPart
+import com.illustar0.zzu.eas.Exam
 import com.illustar0.zzu.eas.ExperimentProject
 import com.illustar0.zzu.eas.GradeState
 import com.illustar0.zzu.eas.RoomActivityType
@@ -418,6 +419,35 @@ class ModelDecodingTest {
         val locked = transcript.grades[1]
         assertEquals(GradeState.EVALUATION_REQUIRED, locked.state)
         assertNull(locked.finalScore)
+    }
+
+    @Test
+    fun examsDecodeScheduledAndUnscheduledEntries() {
+        val exams = ZzuJson.decodeFromString<List<Exam>>(
+            """[
+                {
+                    "id": 42, "courseCode": "CS201", "courseNameZh": "计算机网络",
+                    "examType": {"id": 1, "nameZh": "期末考试", "code": "FINAL"},
+                    "date": "2027-01-10", "weekday": 7,
+                    "startTime": "2027-01-10T09:00:00+08:00[Asia/Shanghai]",
+                    "endTime": "2027-01-10T11:00:00+08:00[Asia/Shanghai]",
+                    "place": "主校区 南101", "seatNumber": "18"
+                },
+                {"courseNameZh": "毕业实习"}
+            ]""",
+        )
+
+        val (scheduled, unscheduled) = exams
+        assertEquals(true, scheduled.isScheduled)
+        assertEquals(DayOfWeek.SUNDAY, scheduled.weekday)
+        assertEquals(
+            LocalDateTime(2027, 1, 10, 9, 0),
+            scheduled.startTime?.toLocalDateTime(ZzuTimeZone),
+        )
+        assertEquals("18", scheduled.seatNumber)
+        assertFalse(unscheduled.isScheduled)
+        assertNull(unscheduled.date)
+        assertNull(unscheduled.weekday)
     }
 
     private fun sampleConflictTimetable(base: Timetable): Timetable {

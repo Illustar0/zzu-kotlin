@@ -172,6 +172,8 @@ class NativeClientTest {
             assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, catalogFailure.kind)
             val transcriptFailure = assertFailsWith<ZzuException.Authentication> { eas.transcript() }
             assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, transcriptFailure.kind)
+            val examsFailure = assertFailsWith<ZzuException.Authentication> { eas.exams() }
+            assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, examsFailure.kind)
 
             assertFailsWith<ZzuException.InvalidInput> {
                 eas.classroomOccupanciesPage(query, page = 0)
