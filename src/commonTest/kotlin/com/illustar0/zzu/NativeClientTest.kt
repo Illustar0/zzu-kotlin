@@ -132,8 +132,12 @@ class NativeClientTest {
         val codeFailure = assertFailsWith<ZzuException.Authentication> { ecard.paymentCode() }
         assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, codeFailure.kind)
         assertFalse(mail.isLoggedIn())
+        assertFailsWith<ZzuException.InvalidInput> { mail.messages(page = 0) }
+        assertFailsWith<ZzuException.InvalidInput> { mail.messages(pageSize = 0) }
         val mailFailure = assertFailsWith<ZzuException.Authentication> { mail.unreadCount() }
         assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, mailFailure.kind)
+        val messagesFailure = assertFailsWith<ZzuException.Authentication> { mail.messages() }
+        assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, messagesFailure.kind)
         eas.close()
         ecard.close()
         mail.close()

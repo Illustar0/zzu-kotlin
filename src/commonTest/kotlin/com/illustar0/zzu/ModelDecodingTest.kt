@@ -36,6 +36,7 @@ import com.illustar0.zzu.ecard.RoomId
 import com.illustar0.zzu.ecard.Transaction
 import com.illustar0.zzu.internal.DecimalSerializer
 import com.illustar0.zzu.internal.ZzuJson
+import com.illustar0.zzu.mail.MailMessagePage
 import com.illustar0.zzu.network.OnlineDevice
 import com.illustar0.zzu.network.SessionId
 import kotlin.test.Test
@@ -173,6 +174,31 @@ class ModelDecodingTest {
         assertEquals(SessionId("sid-1"), device.sessionId)
         assertEquals("", device.hostName)
         assertEquals("1", device.brasId)
+    }
+
+    @Test
+    fun mailMessagePageDecodesTimestampsFlagsAndPagination() {
+        val page = ZzuJson.decodeFromString<MailMessagePage>(
+            """{"items": [{
+                "id": "m-1", "from": "通知 <notice@zzu.edu.cn>", "to": "student@gs.zzu.edu.cn",
+                "subject": "选课通知", "summary": "请按时选课",
+                "sentTime": null, "receivedTime": "2026-11-27T10:20:00+08:00[Asia/Shanghai]",
+                "size": 4096, "isRead": false, "hasAttachment": true, "isFlagged": false
+            }], "page": 1, "pageSize": 20, "totalItems": 25, "totalPages": 2}""",
+        )
+
+        assertEquals(true, page.hasNext)
+        val message = page.items.single()
+        assertEquals("m-1", message.id)
+        assertEquals("选课通知", message.subject)
+        assertNull(message.sentTime)
+        assertEquals(
+            LocalDateTime(2026, 11, 27, 10, 20),
+            message.receivedTime.toLocalDateTime(ZzuTimeZone),
+        )
+        assertEquals(4096L, message.size)
+        assertFalse(message.isRead)
+        assertEquals(true, message.hasAttachment)
     }
 
     @Test

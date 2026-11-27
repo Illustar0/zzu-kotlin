@@ -4,15 +4,17 @@ import com.illustar0.zzu.ZzuException
 import com.illustar0.zzu.cas.CasClient
 import com.illustar0.zzu.internal.ZzuRpc
 import com.illustar0.zzu.internal.fetch
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
- * 校园邮箱（Coremail）客户端，用于获取网页版邮箱入口地址与查询收件箱未读邮件数。
+ * 校园邮箱（Coremail）客户端，用于获取网页版邮箱入口地址，并查询收件箱未读邮件数与邮件摘要列表。
  *
  * 共享 [CasClient] 的统一身份认证会话与操作时限，线程安全，实现 [AutoCloseable]，用完后须调用 [close] 释放句柄，
- * 在途调用不受影响。只读查询方法（[isLoggedIn]、[webmailUrl]、[unreadCount]）可并发执行，
+ * 在途调用不受影响。只读查询方法（[isLoggedIn]、[webmailUrl]、[unreadCount]、[messages]）可并发执行，
  * [login] 与 [logout] 与之互斥同步。
  *
- * 客户端不启动后台刷新任务：每次调用 [webmailUrl] 或 [unreadCount] 前都会检查缓存新鲜度（20 分钟经验阈值）
+ * 客户端不启动后台刷新任务：每次调用 [webmailUrl]、[unreadCount] 或 [messages] 前都会检查缓存新鲜度（20 分钟经验阈值）
  * 与底层 CAS 令牌；若会话超期、CAS 令牌已更新，或服务端返回会话失效错误，内部会合并换新会话并自动重试查询。
  * 若底层 CAS 令牌已不可用，则直接抛出 [ZzuException.Authentication]。
  *
@@ -66,6 +68,30 @@ public class MailClient internal constructor(private val rpc: ZzuRpc) : AutoClos
      * @throws ZzuException.Http 服务端返回非 2xx 状态码且未附带可识别的 JSON 错误体时。
      */
     public suspend fun unreadCount(): Int = rpc.fetch("unread_count")
+
+    /**
+     * 分页查询收件箱（文件夹 ID 为 `1`）中的邮件摘要列表，按接收时间倒序排列。
+     *
+     * [page] 从 1 开始，默认为 1；[pageSize] 为 `null` 时使用 [MailMessagePage.DEFAULT_PAGE_SIZE]（`20`）。
+     * 服务端报告会话失效时会自动用现有 CAS 令牌换新一次并重试；阅读完整正文或处理附件请跳转 [webmailUrl]。
+     *
+     * @throws ZzuException.InvalidInput [page] 小于 1 或 [pageSize] 小于 1 时。
+     * @throws ZzuException.Authentication 尚未调用 [login] 或底层 CAS 令牌不可用时。
+     * @throws ZzuException.Remote 邮箱服务返回业务错误时。
+     * @throws ZzuException.Decode 邮件摘要字段解析失败时。
+     * @throws ZzuException.Transport 网络传输失败时。
+     * @throws ZzuException.Http 服务端返回非 2xx 状态码且未附带可识别的 JSON 错误体时。
+     */
+    public suspend fun messages(
+        page: Int = 1,
+        pageSize: Int? = null,
+    ): MailMessagePage = rpc.fetch(
+        "messages",
+        buildJsonObject {
+            put("page", page)
+            pageSize?.let { put("pageSize", it) }
+        },
+    )
 }
 
 /**

@@ -301,6 +301,29 @@ class ClientCallsTest {
     }
 
     @Test
+    fun mailQueriesInboxMessagesWithOptionalPageSize() = runTest {
+        val transport = FakeTransport {
+            """{"items": [], "page": 1, "pageSize": 20, "totalItems": 0, "totalPages": 0}"""
+        }
+        val mail = MailClient(rpcOver(transport))
+
+        assertEquals(0, mail.messages().totalItems)
+        mail.messages(page = 3, pageSize = 10)
+
+        assertEquals(listOf("messages", "messages"), transport.calls.map { it.first })
+        assertEquals(
+            listOf(
+                buildJsonObject { put("page", 1) },
+                buildJsonObject {
+                    put("page", 3)
+                    put("pageSize", 10)
+                },
+            ),
+            transport.calls.map { it.second },
+        )
+    }
+
+    @Test
     fun easTimetablePassesTypedSemesterIdAndExperimentFlag() = runTest {
         val transport = FakeTransport { TIMETABLE_JSON }
         val eas = EasClient(rpcOver(transport))
