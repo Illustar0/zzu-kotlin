@@ -11,8 +11,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-private const val HASH_MULTIPLIER: Int = 31
-
 /** 可通过 [CasClient.serviceSsoUrl] 获取单点登录跳转地址的业务系统。 */
 @Poko
 public class SsoService private constructor(internal val wire: JsonElement) {
@@ -218,18 +216,14 @@ public class DevicePage(
  * @property mediaType 小写的图像 MIME 媒体类型，如 `"image/png"`、`"image/jpeg"`。
  * @property bytes 原始图像二进制字节流。
  */
+@Poko
 @Serializable
 public class Portrait(
     public val mediaType: String,
+    @Poko.ReadArrayContent
     @SerialName("data")
     @Serializable(with = Base64ByteArraySerializer::class)
     public val bytes: ByteArray,
 ) {
-    override fun equals(other: Any?): Boolean =
-        other is Portrait && mediaType == other.mediaType && bytes.contentEquals(other.bytes)
-
-    override fun hashCode(): Int =
-        HASH_MULTIPLIER * mediaType.hashCode() + bytes.contentHashCode()
-
     override fun toString(): String = "Portrait(mediaType=$mediaType, byteCount=${bytes.size})"
 }
