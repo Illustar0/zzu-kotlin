@@ -7,6 +7,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.format
 import kotlinx.datetime.format.DateTimeComponents
 import kotlinx.datetime.isoDayNumber
@@ -82,5 +83,18 @@ internal object Base64ByteArraySerializer : KSerializer<ByteArray> {
 
     override fun serialize(encoder: Encoder, value: ByteArray) {
         encoder.encodeString(Base64.encode(value))
+    }
+}
+
+/** 每日作息时刻在 ABI 上输出为 `HH:MM:SS`（含按需小数秒），反序列化同时兼容 `HH:MM`。 */
+internal object WallTimeSerializer : KSerializer<LocalTime> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("com.illustar0.zzu.WallTime", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): LocalTime = LocalTime.parse(decoder.decodeString())
+
+    override fun serialize(encoder: Encoder, value: LocalTime) {
+        val text = if (value.second == 0 && value.nanosecond == 0) "$value:00" else value.toString()
+        encoder.encodeString(text)
     }
 }

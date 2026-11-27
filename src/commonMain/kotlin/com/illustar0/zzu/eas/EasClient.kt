@@ -63,7 +63,7 @@ public class EasClient internal constructor(private val rpc: ZzuRpc) : AutoClose
      *
      * 当前学期直接复用登录时缓存的学期元数据，其他学期会先拉取学期列表。
      * [includeExperiments] 控制是否包含实验系统排课，默认为 `true`。
-     * 返回的 [Timetable] 包含学期校历、全部教学班与按时间升序排列的排课场次；
+     * 返回的 [Timetable] 包含学期校历、匹配的每日节次作息、全部教学班与按时间升序排列的排课场次；
      * 按周查看、冲突检测与日历导出均在本地完成，不发起网络请求。
      *
      * @throws ZzuException.Authentication 教务客户端尚未登录或 CAS 令牌不可用时。
@@ -84,9 +84,9 @@ public class EasClient internal constructor(private val rpc: ZzuRpc) : AutoClose
     )
 
     /**
-     * 并发查询教室占用筛选所需的全部参照目录（校区、教学楼、教室类型与楼层）。
+     * 并发查询教室占用筛选所需的全部参照目录（校区、教学楼、教室类型、楼层与标准节次作息）。
      *
-     * 返回扁平列表，供界面构建筛选项，以及按 [ClassroomOccupancy.buildingId] 反查教学楼信息。
+     * 返回扁平列表，供界面构建筛选项、绘制节次概览，以及按 [ClassroomOccupancy.buildingId] 反查教学楼信息。
      *
      * @throws ZzuException.Authentication 教务客户端尚未登录或 CAS 令牌不可用时。
      * @throws ZzuException.Remote 远端返回业务错误状态时。

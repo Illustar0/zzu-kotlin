@@ -77,14 +77,15 @@ public class RoomType(
 )
 
 /**
- * 教室占用查询所需的筛选目录快照。
+ * 教室占用查询所需的筛选目录与标准节次作息快照。
  *
- * 各列表保持扁平结构，便于构建界面筛选项，也便于通过 [ClassroomOccupancy.buildingId] 反查教学楼与校区信息。
+ * 各列表保持扁平结构，便于构建界面筛选项与节次概览，也便于通过 [ClassroomOccupancy.buildingId] 反查教学楼与校区信息。
  *
  * @property campuses 全部校区列表。
  * @property buildings 全部教学楼列表。
  * @property roomTypes 全部教室类型列表。
  * @property floors 可选楼层列表。
+ * @property units 空教室筛选与节次概览使用的标准节次作息列表，按 [CourseUnit.index] 升序排列。
  */
 @Poko
 @Serializable
@@ -93,6 +94,7 @@ public class ClassroomCatalog(
     public val buildings: List<Building>,
     public val roomTypes: List<RoomType>,
     public val floors: List<Int>,
+    public val units: List<CourseUnit> = emptyList(),
 )
 
 /**

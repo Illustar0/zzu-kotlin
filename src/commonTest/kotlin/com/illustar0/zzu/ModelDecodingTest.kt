@@ -9,6 +9,8 @@ import com.illustar0.zzu.eas.ClassOrigin
 import com.illustar0.zzu.eas.ClassSession
 import com.illustar0.zzu.eas.ClassroomCatalog
 import com.illustar0.zzu.eas.ClassroomPage
+import com.illustar0.zzu.eas.CourseUnit
+import com.illustar0.zzu.eas.DayPart
 import com.illustar0.zzu.eas.ExperimentProject
 import com.illustar0.zzu.eas.RoomActivityType
 import com.illustar0.zzu.eas.ScheduleState
@@ -38,6 +40,7 @@ import kotlin.time.Instant
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.toLocalDateTime
 
 class ModelDecodingTest {
@@ -67,7 +70,28 @@ class ModelDecodingTest {
         val encoded = ZzuJson.encodeToString(timetable)
 
         assertContains(encoded, "2026-10-26T08:00:00+08:00[Asia/Shanghai]")
+        assertContains(encoded, "\"startTime\":\"08:00:00\"")
         assertEquals(timetable, ZzuJson.decodeFromString(encoded))
+    }
+
+    @Test
+    fun courseUnitsLookupByIndexAndAcceptShortOrFractionalTimes() {
+        val timetable = ZzuJson.decodeFromString<Timetable>(TIMETABLE_JSON)
+        val firstUnit = timetable.unit(1)
+
+        assertEquals(DayPart.MORNING, firstUnit?.dayPart)
+        assertEquals(LocalTime(8, 0), firstUnit?.startTime)
+        assertEquals(LocalTime(8, 45), firstUnit?.endTime)
+        assertNull(timetable.unit(99))
+
+        val customUnit = ZzuJson.decodeFromString<CourseUnit>(
+            """{"index": 5, "nameZh": "第+1节", "dayPart": "noon", "segmentIndex": 3,
+                "startTime": "12:10", "endTime": "12:55:00.5"}""",
+        )
+        assertEquals(DayPart.NOON, customUnit.dayPart)
+        assertEquals(LocalTime(12, 10), customUnit.startTime)
+        assertEquals(LocalTime(12, 55, 0, 500_000_000), customUnit.endTime)
+        assertContains(ZzuJson.encodeToString(customUnit), "\"startTime\":\"12:10:00\"")
     }
 
     @Test
@@ -317,11 +341,14 @@ class ModelDecodingTest {
             """{"campuses": [{"id": 1, "code": "MAIN", "nameZh": "主校区", "enabled": true}],
                 "buildings": [{"id": 10, "code": "B1", "nameZh": "南核心", "campusId": 1, "enabled": true}],
                 "roomTypes": [{"id": 2, "code": "NORMAL", "nameZh": "普通教室", "enabled": false}],
-                "floors": [1, 2]}""",
+                "floors": [1, 2],
+                "units": [{"index": 9, "nameZh": "9", "dayPart": "evening", "segmentIndex": 5,
+                    "startTime": "19:00:00", "endTime": "19:45:00"}]}""",
         )
         assertEquals(true, catalog.campuses.single().isEnabled)
         assertEquals(1L, catalog.buildings.single().campusId)
         assertFalse(catalog.roomTypes.single().isEnabled)
+        assertEquals(DayPart.EVENING, catalog.units.single().dayPart)
 
         val page = ZzuJson.decodeFromString<ClassroomPage>(
             """{"items": [{

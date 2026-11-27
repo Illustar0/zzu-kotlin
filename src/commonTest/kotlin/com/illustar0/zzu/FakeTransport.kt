@@ -36,6 +36,16 @@ internal const val SEMESTER_JSON = """{
 
 internal const val TIMETABLE_JSON = """{
     "semester": $SEMESTER_JSON,
+    "units": [
+        {
+            "index": 1, "nameZh": "1", "nameEn": "1", "dayPart": "morning",
+            "segmentIndex": 1, "startTime": "08:00:00", "endTime": "08:45:00"
+        },
+        {
+            "index": 2, "nameZh": "2", "nameEn": null, "dayPart": "morning",
+            "segmentIndex": 1, "startTime": "08:55:00", "endTime": "09:40:00"
+        }
+    ],
     "classes": [
         {
             "id": 1001, "code": "CS101-01", "origin": "regular",

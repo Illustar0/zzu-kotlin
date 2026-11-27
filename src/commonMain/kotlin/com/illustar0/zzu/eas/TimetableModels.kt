@@ -452,6 +452,7 @@ public class WeekView internal constructor(
  * 按周查看、冲突检测与日历导出均在本地完成，不发起网络请求。
  *
  * @property semester 课表所属学期校历。
+ * @property units 本课表适用的每日节次作息列表，按 [CourseUnit.index] 升序排列。
  * @property classes 本学期全部选修教学班，包含未排课课程与实验父班。
  * @property sessions 本学期全部排课场次，按上课时间升序排列。
  */
@@ -460,9 +461,14 @@ public class WeekView internal constructor(
 @Suppress("TooManyFunctions") // 课表快照的全部本地查询与导出入口集中在 Timetable 上，与 libzzu API 对齐。
 public class Timetable(
     public val semester: Semester,
+    public val units: List<CourseUnit> = emptyList(),
     public val classes: List<TeachingClass>,
     public val sessions: List<ClassSession>,
 ) {
+    /** 按节次序号 [index]（从 1 开始）查找对应的作息时间定义。 */
+    public fun unit(index: Int): CourseUnit? =
+        units.firstOrNull { it.index == index }
+
     /** 按教学班 ID [classId] 查找教学班元数据。 */
     public fun teachingClass(classId: Long): TeachingClass? =
         classes.firstOrNull { it.id == classId }
