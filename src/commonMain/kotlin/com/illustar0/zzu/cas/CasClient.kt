@@ -216,6 +216,30 @@ public class CasClient internal constructor(
     }
 
     /**
+     * 分页查询当前账号下的历史登录设备与信任状态，需已登录。
+     *
+     * [page] 从 1 开始，默认为 1；[pageSize] 为 `null` 时使用 [DevicePage.DEFAULT_PAGE_SIZE]（`20`）。
+     * 返回条目的 [LoginDevice.deviceId] 可直接传给 [setDeviceTrust] 更新信任状态。
+     *
+     * @throws ZzuException.InvalidInput [page] 小于 1 或 [pageSize] 小于 1 时。
+     * @throws ZzuException.Authentication 尚未登录或令牌不可用时（`NOT_AUTHENTICATED` 或 `TOKEN_EXPIRED`）。
+     * @throws ZzuException.Remote 认证服务返回业务错误状态时。
+     * @throws ZzuException.Decode 设备记录字段或时间格式解析失败时。
+     * @throws ZzuException.Transport 网络传输失败时。
+     * @throws ZzuException.Http 服务端返回非 2xx 状态码时。
+     */
+    public suspend fun devices(
+        page: Int = 1,
+        pageSize: Int? = null,
+    ): DevicePage = rpc.fetch(
+        "devices",
+        buildJsonObject {
+            put("page", page)
+            pageSize?.let { put("pageSize", it) }
+        },
+    )
+
+    /**
      * 查询当前用户的个人身份信息，需已登录。
      *
      * @throws ZzuException.Authentication 尚未登录或令牌不可用时（`NOT_AUTHENTICATED` 或 `TOKEN_EXPIRED`）。

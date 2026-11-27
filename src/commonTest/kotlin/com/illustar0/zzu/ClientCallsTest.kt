@@ -143,6 +143,30 @@ class ClientCallsTest {
     }
 
     @Test
+    fun casQueriesDevicesWithOptionalPageSize() = runTest {
+        val transport = FakeTransport {
+            """{"items": [], "page": 1, "pageSize": 20, "totalItems": 0, "totalPages": 0}"""
+        }
+        val cas = CasClient(transport, rpcOver(transport))
+
+        val defaultPage = cas.devices()
+        cas.devices(page = 2, pageSize = 10)
+
+        assertEquals(0, defaultPage.totalItems)
+        assertEquals(listOf("devices", "devices"), transport.calls.map { it.first })
+        assertEquals(
+            listOf(
+                buildJsonObject { put("page", 1) },
+                buildJsonObject {
+                    put("page", 2)
+                    put("pageSize", 10)
+                },
+            ),
+            transport.calls.map { it.second },
+        )
+    }
+
+    @Test
     fun casSendsTokensWithTheirWireNames() = runTest {
         val transport = FakeTransport()
 

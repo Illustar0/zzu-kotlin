@@ -67,11 +67,15 @@ class NativeClientTest {
     @Test
     fun deviceTrustValidatesInputAndRequiresLogin() = runTest {
         assertFailsWith<ZzuException.InvalidInput> { cas.setDeviceTrust("", isTrusted = true) }
+        assertFailsWith<ZzuException.InvalidInput> { cas.devices(page = 0) }
+        assertFailsWith<ZzuException.InvalidInput> { cas.devices(pageSize = 0) }
 
         val failure = assertFailsWith<ZzuException.Authentication> {
             cas.setDeviceTrust("test-device", isTrusted = false)
         }
         assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, failure.kind)
+        val devicesFailure = assertFailsWith<ZzuException.Authentication> { cas.devices() }
+        assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, devicesFailure.kind)
     }
 
     @Test

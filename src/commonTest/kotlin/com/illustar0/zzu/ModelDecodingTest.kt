@@ -1,5 +1,7 @@
 package com.illustar0.zzu
 
+import com.illustar0.zzu.cas.DevicePage
+import com.illustar0.zzu.cas.LoginDevice
 import com.illustar0.zzu.cas.PersonalInfo
 import com.illustar0.zzu.cas.Tokens
 import com.illustar0.zzu.eas.ClassOrigin
@@ -153,6 +155,34 @@ class ModelDecodingTest {
         assertEquals("学院", info.organizationName)
         assertEquals("2", info.organizationId)
         assertFalse("secret" in info.toString(), "泄露于 $info")
+    }
+
+    @Test
+    fun devicePageDecodesHistoryAndRedactsDeviceCredentials() {
+        val page = ZzuJson.decodeFromString<DevicePage>(
+            """{"items": [{
+                "id": "rec-1", "deviceId": "secret-device-id", "isTrusted": true,
+                "deviceType": "MOBILE", "os": "ANDROID", "browser": null,
+                "userAgent": "secret-ua", "usedCount": 5,
+                "firstUsedTime": "2026-10-01T09:00:00+08:00[Asia/Shanghai]",
+                "lastUsedTime": "2026-11-27T12:30:00+08:00[Asia/Shanghai]",
+                "previousUsedTime": null, "upstreamOnly": 1
+            }], "page": 1, "pageSize": 20, "totalItems": 25, "totalPages": 2}""",
+        )
+
+        assertEquals(true, page.hasNext)
+        val device = page.items.single()
+        assertEquals("rec-1", device.id)
+        assertEquals("secret-device-id", device.deviceId)
+        assertEquals(true, device.isTrusted)
+        assertEquals("MOBILE", device.deviceType)
+        assertEquals(5, device.usedCount)
+        assertEquals(
+            LocalDateTime(2026, 11, 27, 12, 30),
+            device.lastUsedTime.toLocalDateTime(ZzuTimeZone),
+        )
+        assertNull(device.previousUsedTime)
+        assertFalse("secret" in device.toString(), "泄露于 $device")
     }
 
     @Test
