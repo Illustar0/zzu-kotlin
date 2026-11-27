@@ -15,6 +15,7 @@ import com.illustar0.zzu.ecard.TransactionQuery
 import com.illustar0.zzu.internal.ZzuJson
 import com.illustar0.zzu.mail.MailClient
 import com.illustar0.zzu.network.PortalClient
+import com.illustar0.zzu.network.PortalEncryption
 import com.illustar0.zzu.network.PortalSourceAddress
 import com.illustar0.zzu.network.SelfServiceClient
 import kotlin.test.AfterTest
@@ -115,6 +116,17 @@ class NativeClientTest {
     fun portalAcceptsEverySourceAddress() {
         PortalSourceAddress.entries.forEach { sourceAddress ->
             PortalClient("http://10.0.0.1:801", "10.0.0.2", sourceAddress).close()
+        }
+    }
+
+    @Test
+    fun portalLogoutValidatesAndReachesTransportLayer() = runTest {
+        val port = unusedLoopbackPort()
+        PortalClient("http://127.0.0.1:$port", "10.0.0.2", PortalSourceAddress.SYSTEM).use { portal ->
+            val failure = assertFailsWith<ZzuException.Transport> {
+                portal.logout(PortalEncryption.XOR)
+            }
+            assertEquals(TransportErrorKind.CONNECTION, failure.kind)
         }
     }
 

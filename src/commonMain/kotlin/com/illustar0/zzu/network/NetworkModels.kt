@@ -38,7 +38,7 @@ public class IspInfo(
     public val suffix: String,
 )
 
-/** Portal 登录请求的本地源地址选择方式。 */
+/** Portal 请求的本地源地址选择方式。 */
 @Serializable
 public enum class PortalSourceAddress {
     /** 将 `userIp` 绑定为本地套接字源地址，适合终端直连校园网、`userIp` 就是本机网卡地址的场景。 */
@@ -50,10 +50,10 @@ public enum class PortalSourceAddress {
     SYSTEM,
 }
 
-/** Portal 登录请求参数的编码方式。 */
+/** Portal 认证与下线请求参数的编码方式。 */
 @Serializable
 public enum class PortalEncryption {
-    /** 明文参数传输，密码只做标准 Base64 编码。 */
+    /** 明文参数传输，登录密码只做标准 Base64 编码。 */
     @SerialName("plain")
     PLAIN,
 
@@ -63,12 +63,12 @@ public enum class PortalEncryption {
 }
 
 /**
- * Portal 登录接口返回的 JSONP 认证结果。
+ * Portal 认证或下线接口返回的 JSONP 结果。
  *
- * @property isSuccess 认证是否通过（即 [result] 等于 `1L`）。
- * @property result 服务端结果码，`1L` 表示认证成功。
+ * @property isSuccess 上线认证或下线注销是否成功（即 [result] 等于 `1L`）。
+ * @property result 服务端结果码，`1L` 表示操作成功。
  * @property message 服务端返回的状态说明消息。
- * @property retCode 认证失败或特殊状态时附带的可选细分返回码。
+ * @property retCode 操作失败或特殊状态时附带的可选细分返回码。
  */
 @Poko
 @Serializable

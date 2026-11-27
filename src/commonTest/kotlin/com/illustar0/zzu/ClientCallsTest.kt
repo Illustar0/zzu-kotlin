@@ -556,6 +556,26 @@ class ClientCallsTest {
     }
 
     @Test
+    fun portalLogoutEncodesDefaultAndXorEncryption() = runTest {
+        val transport = FakeTransport {
+            """{"isSuccess": true, "result": 1, "message": "注销成功", "retCode": null}"""
+        }
+        val portal = PortalClient(rpcOver(transport))
+
+        assertTrue(portal.logout().isSuccess)
+        portal.logout(PortalEncryption.XOR)
+
+        assertEquals(listOf("logout", "logout"), transport.calls.map { it.first })
+        assertEquals(
+            listOf(
+                buildJsonObject { put("encryption", "plain") },
+                buildJsonObject { put("encryption", "xor") },
+            ),
+            transport.calls.map { it.second },
+        )
+    }
+
+    @Test
     fun portalDecodesAvailableIsps() = runTest {
         val transport = FakeTransport {
             """[{"name": "校园网", "suffix": ""}, {"name": "中国移动", "suffix": "@cmcc"}]"""
