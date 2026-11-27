@@ -9,11 +9,13 @@ import com.illustar0.zzu.eas.ClassOrigin
 import com.illustar0.zzu.eas.ClassSession
 import com.illustar0.zzu.eas.ClassroomCatalog
 import com.illustar0.zzu.eas.ClassroomPage
+import com.illustar0.zzu.eas.CompletionStatus
 import com.illustar0.zzu.eas.CourseUnit
 import com.illustar0.zzu.eas.DayPart
 import com.illustar0.zzu.eas.Exam
 import com.illustar0.zzu.eas.ExperimentProject
 import com.illustar0.zzu.eas.GradeState
+import com.illustar0.zzu.eas.ProgramCompletion
 import com.illustar0.zzu.eas.RoomActivityType
 import com.illustar0.zzu.eas.ScheduleState
 import com.illustar0.zzu.eas.Semester
@@ -448,6 +450,57 @@ class ModelDecodingTest {
         assertFalse(unscheduled.isScheduled)
         assertNull(unscheduled.date)
         assertNull(unscheduled.weekday)
+    }
+
+    @Test
+    fun programCompletionDecodesRecursiveModulesAndTotalsCredits() {
+        val completion = ZzuJson.decodeFromString<ProgramCompletion>(
+            """{
+                "cultivateType": {"id": 1, "nameZh": "主修", "code": "01"},
+                "requiredCredits": 160.0, "requiredModuleCount": 2,
+                "modules": [
+                    {
+                        "kind": {"id": 10, "nameZh": "专业必修", "code": "REQ"},
+                        "requiredCredits": 80.0, "requiredCourseCount": 20, "requiredSubModuleCount": 1,
+                        "passedCredits": 60.5, "takingCredits": 12.0, "exemptCredits": 2.0,
+                        "status": "in_progress",
+                        "children": [{
+                            "kind": {"id": 11, "nameZh": "核心基础", "code": "CORE"},
+                            "requiredCredits": 30.0, "requiredCourseCount": 0, "requiredSubModuleCount": 0,
+                            "passedCredits": 30.0, "takingCredits": 0.0, "exemptCredits": 0.0,
+                            "status": "passed",
+                            "courses": [{
+                                "courseId": 101, "courseCode": "CS101", "courseNameZh": "程序设计",
+                                "credits": 3.0, "isCompulsory": true, "suggestedTerms": [1, 2],
+                                "status": "passed", "score": "92", "gradePoint": 4.0,
+                                "substituteCourses": [{"id": 99, "nameZh": "C语言", "code": "CS100"}]
+                            }]
+                        }]
+                    },
+                    {
+                        "kind": {"id": 20, "nameZh": "通识选修", "code": "GEN"},
+                        "requiredCredits": 10.0, "requiredCourseCount": 0, "requiredSubModuleCount": 0,
+                        "passedCredits": 10.0, "takingCredits": 2.5, "exemptCredits": 0.0,
+                        "status": "exempt"
+                    }
+                ],
+                "outOfPlanCourses": [{
+                    "courseId": 202, "courseCode": "ART01", "courseNameZh": "音乐鉴赏",
+                    "isCompulsory": false, "status": "not_taken"
+                }]
+            }""",
+        )
+
+        assertEquals(70.5, completion.passedCredits())
+        assertEquals(14.5, completion.takingCredits())
+        val firstModule = completion.modules.first()
+        assertEquals(CompletionStatus.IN_PROGRESS, firstModule.status)
+        val childCourse = firstModule.children.single().courses.single()
+        assertEquals(CompletionStatus.PASSED, childCourse.status)
+        assertEquals(listOf(1, 2), childCourse.suggestedTerms)
+        assertEquals("C语言", childCourse.substituteCourses.single().nameZh)
+        assertEquals(CompletionStatus.EXEMPT, completion.modules[1].status)
+        assertEquals(CompletionStatus.NOT_TAKEN, completion.outOfPlanCourses.single().status)
     }
 
     private fun sampleConflictTimetable(base: Timetable): Timetable {

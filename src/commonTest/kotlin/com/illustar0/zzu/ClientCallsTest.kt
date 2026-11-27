@@ -336,6 +336,19 @@ class ClientCallsTest {
     }
 
     @Test
+    fun easQueriesProgramCompletionWithoutParameters() = runTest {
+        val transport = FakeTransport {
+            """[{"cultivateType": {"id": 1, "nameZh": "主修", "code": "01"},
+                "requiredCredits": 160.0, "requiredModuleCount": 4}]"""
+        }
+
+        val completions = EasClient(rpcOver(transport)).programCompletion()
+
+        assertEquals(160.0, completions.single().requiredCredits)
+        assertEquals("program_completion" to null, transport.calls.single())
+    }
+
+    @Test
     fun easClassroomQueriesEncodeFlatFilterParameters() = runTest {
         val transport = FakeTransport { method ->
             when (method) {
