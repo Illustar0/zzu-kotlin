@@ -170,6 +170,8 @@ class NativeClientTest {
             val query = ClassroomQuery(date = LocalDate(2026, 11, 24))
             val catalogFailure = assertFailsWith<ZzuException.Authentication> { eas.classroomCatalog() }
             assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, catalogFailure.kind)
+            val transcriptFailure = assertFailsWith<ZzuException.Authentication> { eas.transcript() }
+            assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, transcriptFailure.kind)
 
             assertFailsWith<ZzuException.InvalidInput> {
                 eas.classroomOccupanciesPage(query, page = 0)

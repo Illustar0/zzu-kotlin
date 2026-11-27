@@ -12,6 +12,7 @@ import com.illustar0.zzu.eas.ClassroomPage
 import com.illustar0.zzu.eas.CourseUnit
 import com.illustar0.zzu.eas.DayPart
 import com.illustar0.zzu.eas.ExperimentProject
+import com.illustar0.zzu.eas.GradeState
 import com.illustar0.zzu.eas.RoomActivityType
 import com.illustar0.zzu.eas.ScheduleState
 import com.illustar0.zzu.eas.Semester
@@ -19,7 +20,9 @@ import com.illustar0.zzu.eas.SemesterId
 import com.illustar0.zzu.eas.SemesterSeason
 import com.illustar0.zzu.eas.SessionKind
 import com.illustar0.zzu.eas.SessionState
+import com.illustar0.zzu.eas.StudyType
 import com.illustar0.zzu.eas.Timetable
+import com.illustar0.zzu.eas.Transcript
 import com.illustar0.zzu.eas.locateDate
 import com.illustar0.zzu.ecard.FormField
 import com.illustar0.zzu.ecard.PaymentAction
@@ -394,6 +397,27 @@ class ModelDecodingTest {
             val instant = Instant.parse("2026-11-24T02:00:00Z")
             room.occupationsBetween(instant, instant)
         }
+    }
+
+    @Test
+    fun transcriptDecodesGradesFiltersBySemesterAndDeduplicatesEarnedCredits() {
+        val transcript = ZzuJson.decodeFromString<Transcript>(TRANSCRIPT_JSON)
+
+        assertEquals(3.72, transcript.gpa)
+        assertEquals(5, transcript.rank?.rank)
+        assertEquals(120, transcript.rank?.total)
+        assertEquals(2, transcript.semesterGrades(SemesterId(194)).size)
+        assertEquals(1, transcript.semesterGrades(SemesterId(190)).size)
+        assertEquals(3.0, transcript.earnedCredits())
+
+        val first = transcript.grades.first()
+        assertEquals(StudyType.REQUIRED, first.studyType)
+        assertEquals(GradeState.NORMAL, first.state)
+        assertEquals("95", first.subGrades.single().items.single().score)
+
+        val locked = transcript.grades[1]
+        assertEquals(GradeState.EVALUATION_REQUIRED, locked.state)
+        assertNull(locked.finalScore)
     }
 
     private fun sampleConflictTimetable(base: Timetable): Timetable {

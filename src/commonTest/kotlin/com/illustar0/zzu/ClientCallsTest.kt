@@ -315,6 +315,17 @@ class ClientCallsTest {
     }
 
     @Test
+    fun easQueriesTranscriptWithoutParameters() = runTest {
+        val transport = FakeTransport { """{"gpa": 3.85, "rank": {"rank": 3, "total": 120}, "grades": []}""" }
+
+        val transcript = EasClient(rpcOver(transport)).transcript()
+
+        assertEquals(3.85, transcript.gpa)
+        assertEquals(3, transcript.rank?.rank)
+        assertEquals("transcript" to null, transport.calls.single())
+    }
+
+    @Test
     fun easClassroomQueriesEncodeFlatFilterParameters() = runTest {
         val transport = FakeTransport { method ->
             when (method) {

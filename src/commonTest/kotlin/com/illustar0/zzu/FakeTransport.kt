@@ -104,3 +104,45 @@ internal const val ORDER_JSON = """{
         "extend": {"accessToken": "test-payment-secret"}
     }
 }"""
+
+internal const val TRANSCRIPT_JSON = """{
+    "gpa": 3.72,
+    "rank": {"rank": 5, "total": 120},
+    "grades": [
+        {
+            "semester": {
+                "id": 194, "code": "2026-2027-1", "nameZh": "秋季", "nameEn": null,
+                "schoolYear": "2026-2027", "season": "autumn",
+                "startDate": "2026-09-07", "endDate": "2027-01-17"
+            },
+            "courseId": 10, "courseCode": "CS101", "courseNameZh": "程序设计",
+            "studyType": "required", "credits": 3.0, "finalScore": "92", "gradePoint": 4.0,
+            "isPassed": true, "isPublished": true, "isRetake": true, "state": "normal",
+            "subGrades": [{
+                "kind": {"id": 1, "nameZh": "平时成绩", "code": "USUAL"},
+                "score": "95", "isPublished": true,
+                "items": [{"name": "实验报告", "score": "95"}]
+            }]
+        },
+        {
+            "semester": {
+                "id": 194, "code": "2026-2027-1", "nameZh": "秋季", "nameEn": null,
+                "schoolYear": "2026-2027", "season": "autumn",
+                "startDate": "2026-09-07", "endDate": "2027-01-17"
+            },
+            "courseCode": "CS102", "courseNameZh": "数据结构",
+            "studyType": "elective", "credits": 4.0, "finalScore": null, "gradePoint": null,
+            "isPassed": true, "isPublished": false, "isRetake": false, "state": "evaluation_required"
+        },
+        {
+            "semester": {
+                "id": 190, "code": "2025-2026-1", "nameZh": "秋季", "nameEn": null,
+                "schoolYear": "2025-2026", "season": "autumn",
+                "startDate": "2025-09-01", "endDate": "2026-01-15"
+            },
+            "courseCode": "CS101", "courseNameZh": "程序设计",
+            "credits": 2.5, "finalScore": "61", "gradePoint": 1.2,
+            "isPassed": true, "isPublished": true, "isRetake": false, "state": "deferred_pending"
+        }
+    ]
+}"""

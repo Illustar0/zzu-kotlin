@@ -10,7 +10,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * 本科教务系统（EAMS）客户端，用于查询学期校历、学期完整课表以及教室占用。
+ * 本科教务系统（EAMS）客户端，用于查询学期校历、学期完整课表、成绩单与绩点排名以及教室占用。
  *
  * 共享 [CasClient] 的统一身份认证会话与操作时限，线程安全，实现 [AutoCloseable]，用完后须调用 [close] 释放句柄，
  * 在途调用不受影响。只读查询方法可并发执行，[login] 与 [logout] 与之互斥同步。
@@ -82,6 +82,19 @@ public class EasClient internal constructor(private val rpc: ZzuRpc) : AutoClose
             put("includeExperiments", includeExperiments)
         },
     )
+
+    /**
+     * 并发查询当前学生的完整成绩单与累计专业绩点排名。
+     *
+     * 结果按最新学期在前排序；尚未完成网上评教的课程自动将 [CourseGrade.state] 标为
+     * [GradeState.EVALUATION_REQUIRED]，并隐藏占位零分与绩点。
+     *
+     * @throws ZzuException.Authentication 教务客户端尚未登录或 CAS 令牌不可用时。
+     * @throws ZzuException.Remote 远端返回业务错误状态时。
+     * @throws ZzuException.Decode 成绩或绩点排名字段解析校验失败时。
+     * @throws ZzuException.Transport 网络传输失败时。
+     */
+    public suspend fun transcript(): Transcript = rpc.fetch("transcript")
 
     /**
      * 并发查询教室占用筛选所需的全部参照目录（校区、教学楼、教室类型、楼层与标准节次作息）。
