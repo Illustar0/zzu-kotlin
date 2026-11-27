@@ -1,11 +1,14 @@
 package com.illustar0.zzu.ecard
 
+import com.illustar0.zzu.Decimal
+import com.illustar0.zzu.internal.SecondsSerializer
 import com.illustar0.zzu.internal.ZzuJson
 import com.illustar0.zzu.internal.nativeCheckoutUrl
 import com.illustar0.zzu.internal.nativeRoomIdParse
 import com.illustar0.zzu.internal.putValue
 import dev.drewhamilton.poko.Poko
 import kotlin.jvm.JvmInline
+import kotlin.time.Duration
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
@@ -52,6 +55,28 @@ public class Location(
     public val id: String,
     public val name: String,
 )
+
+/**
+ * 在线校园码（动态付款码与通行码）载荷及自动刷新配置。
+ *
+ * [code] 为实时支付与门禁凭据，切勿写入日志；[toString] 已隐藏该字段。
+ *
+ * @property code 用于渲染二维码图像的动态码原始字符串。
+ * @property balance 生成动态码时刻的校园卡账户余额，单位为元。
+ * @property refreshInterval 服务端建议的动态码自动刷新间隔。
+ */
+@Poko
+@Serializable
+public class PaymentCode(
+    public val code: String,
+    public val balance: Decimal,
+    @SerialName("refreshSeconds")
+    @Serializable(with = SecondsSerializer::class)
+    public val refreshInterval: Duration,
+) {
+    override fun toString(): String =
+        "PaymentCode(balance=$balance, refreshInterval=$refreshInterval)"
+}
 
 /**
  * 校园卡充值面额与网页收银台配置。

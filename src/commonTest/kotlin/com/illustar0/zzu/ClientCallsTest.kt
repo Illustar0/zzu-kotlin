@@ -403,6 +403,20 @@ class ClientCallsTest {
     }
 
     @Test
+    fun ecardPaymentCodeConvertsRefreshIntervalToDuration() = runTest {
+        val transport = FakeTransport {
+            """{"code": "secret-qr", "balance": "36.50", "refreshSeconds": 60}"""
+        }
+
+        val paymentCode = EcardClient(rpcOver(transport)).paymentCode()
+
+        assertEquals("secret-qr", paymentCode.code)
+        assertEquals(Decimal.parse("36.50"), paymentCode.balance)
+        assertEquals(60_000.milliseconds, paymentCode.refreshInterval)
+        assertEquals("payment_code" to null, transport.calls.single())
+    }
+
+    @Test
     fun ecardPassesOrdersBackUntouched() = runTest {
         val order = ZzuJson.decodeFromString<RechargeOrder>(ORDER_JSON)
         val transport = FakeTransport { "[]" }

@@ -11,10 +11,10 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * 校园卡与宿舍电控服务客户端，涵盖余额查询、电控位置检索、电费查询与充值以及校园卡网页充值下单。
+ * 校园卡与宿舍电控服务客户端，涵盖余额与在线校园码查询、电控位置检索、电费查询与充值以及校园卡网页充值下单。
  *
  * 共享 [CasClient] 的统一身份认证会话与操作时限，线程安全，实现 [AutoCloseable]，用完后须调用 [close] 释放句柄，
- * 在途调用不受影响。查询与收银台预支付方法（[isLoggedIn]、[defaultRoom]、[balance]、[locations]、
+ * 在途调用不受影响。查询与收银台预支付方法（[isLoggedIn]、[defaultRoom]、[balance]、[paymentCode]、[locations]、
  * [remainingEnergy]、[rechargeConfig]、[paymentChannels]、[preparePayment]）只在读写缓存时短暂持锁，可并发执行；
  * [login]、[logout]、[rechargeEnergy] 与 [createRechargeOrder] 互斥同步执行。
  *
@@ -37,7 +37,7 @@ public class EcardClient internal constructor(private val rpc: ZzuRpc) : AutoClo
         rpc.perform("login")
     }
 
-    /** 清除本地缓存的校园卡会话与默认房间信息，不影响底层共享的 [CasClient]。 */
+    /** 清除本地缓存的校园卡会话、默认房间与校园码刷新配置，不影响底层共享的 [CasClient]。 */
     public suspend fun logout() {
         rpc.perform("logout")
     }
@@ -65,6 +65,19 @@ public class EcardClient internal constructor(private val rpc: ZzuRpc) : AutoClo
      * @throws ZzuException.Transport 网络传输失败时。
      */
     public suspend fun balance(): Decimal = rpc.fetch("balance", null, DecimalSerializer)
+
+    /**
+     * 获取当前账号的在线校园码（动态付款码与通行码）及建议刷新周期。
+     *
+     * 首次调用并发拉取动态码与虚拟卡配置并缓存刷新周期，后续刷新只请求动态码接口。
+     * 返回的 [PaymentCode.code] 携带实时支付凭据，切勿写入日志。
+     *
+     * @throws ZzuException.Authentication 尚未登录或底层 CAS 令牌不可用时。
+     * @throws ZzuException.Remote 服务端未开放在线校园码或返回业务错误时。
+     * @throws ZzuException.Decode 动态码为空或响应字段解析失败时。
+     * @throws ZzuException.Transport 网络传输失败时。
+     */
+    public suspend fun paymentCode(): PaymentCode = rpc.fetch("payment_code")
 
     /**
      * 按上级位置编码 [parent] 逐级检索电控位置目录，结果按 `id` 升序排列。

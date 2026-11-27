@@ -29,6 +29,7 @@ import com.illustar0.zzu.eas.Transcript
 import com.illustar0.zzu.eas.locateDate
 import com.illustar0.zzu.ecard.FormField
 import com.illustar0.zzu.ecard.PaymentAction
+import com.illustar0.zzu.ecard.PaymentCode
 import com.illustar0.zzu.ecard.RechargeOrder
 import com.illustar0.zzu.internal.DecimalSerializer
 import com.illustar0.zzu.internal.ZzuJson
@@ -280,8 +281,9 @@ class ModelDecodingTest {
         )
         val request = RequestContext("GET", "https://a.test", responseBody = "secret")
         val tokens = Tokens("secret", "secret")
+        val paymentCode = PaymentCode("secret", Decimal.parse("10.00"), 60.seconds)
 
-        listOf(order, redirect, form, form.fields, request, tokens).forEach { value ->
+        listOf(order, redirect, form, form.fields, request, tokens, paymentCode).forEach { value ->
             assertFalse("secret" in value.toString(), "泄露于 $value")
         }
     }

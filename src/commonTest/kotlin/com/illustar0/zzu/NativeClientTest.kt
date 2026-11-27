@@ -128,6 +128,8 @@ class NativeClientTest {
         val failure = assertFailsWith<ZzuException.Authentication> { eas.login() }
         assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, failure.kind)
         assertFalse(ecard.isLoggedIn())
+        val codeFailure = assertFailsWith<ZzuException.Authentication> { ecard.paymentCode() }
+        assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, codeFailure.kind)
         assertFalse(mail.isLoggedIn())
         val mailFailure = assertFailsWith<ZzuException.Authentication> { mail.unreadCount() }
         assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, mailFailure.kind)
