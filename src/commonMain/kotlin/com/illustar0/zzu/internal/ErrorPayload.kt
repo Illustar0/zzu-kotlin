@@ -11,7 +11,7 @@ import kotlinx.serialization.SerializationException
 
 /** 本 SDK 编译时依赖的 C ABI 版本；加载时要求主版本相等、次版本不低于此值。 */
 internal const val ABI_VERSION_MAJOR: Int = 2
-internal const val ABI_VERSION_MINOR: Int = 0
+internal const val ABI_VERSION_MINOR: Int = 1
 private const val ABI_VERSION_COMPONENT_BITS: Int = 16
 private const val ABI_VERSION_MINOR_MASK: Int = 0xFFFF
 
