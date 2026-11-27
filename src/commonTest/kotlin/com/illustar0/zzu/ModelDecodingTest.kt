@@ -81,7 +81,6 @@ class ModelDecodingTest {
         val encoded = ZzuJson.encodeToString(timetable)
 
         assertContains(encoded, "2026-10-26T08:00:00+08:00[Asia/Shanghai]")
-        assertContains(encoded, "\"startTime\":\"08:00:00\"")
         assertEquals(timetable, ZzuJson.decodeFromString(encoded))
     }
 
@@ -102,7 +101,7 @@ class ModelDecodingTest {
         assertEquals(DayPart.NOON, customUnit.dayPart)
         assertEquals(LocalTime(12, 10), customUnit.startTime)
         assertEquals(LocalTime(12, 55, 0, 500_000_000), customUnit.endTime)
-        assertContains(ZzuJson.encodeToString(customUnit), "\"startTime\":\"12:10:00\"")
+        assertEquals(customUnit, ZzuJson.decodeFromString(ZzuJson.encodeToString(customUnit)))
     }
 
     @Test

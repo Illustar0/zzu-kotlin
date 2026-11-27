@@ -1,6 +1,5 @@
 package com.illustar0.zzu.eas
 
-import com.illustar0.zzu.internal.WallTimeSerializer
 import dev.drewhamilton.poko.Poko
 import kotlin.jvm.JvmInline
 import kotlinx.datetime.DateTimeUnit
@@ -79,9 +78,7 @@ public class CourseUnit(
     public val nameEn: String? = null,
     public val dayPart: DayPart,
     public val segmentIndex: Int,
-    @Serializable(with = WallTimeSerializer::class)
     public val startTime: LocalTime,
-    @Serializable(with = WallTimeSerializer::class)
     public val endTime: LocalTime,
 )
 
