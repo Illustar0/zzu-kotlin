@@ -17,3 +17,10 @@ internal expect suspend fun withMockSelfServiceServer(
     resumeQuery: CompletableDeferred<Unit>,
     block: suspend (url: String) -> Unit,
 )
+
+internal const val MOCK_ONLINE_LIST_JSON = """[{
+    "brasid": "1", "downFlow": "1024", "hostName": null, "ip": "10.1.2.3",
+    "loginTime": "2026-10-31 08:30:45", "mac": "001122334455",
+    "sessionId": "sid-1", "terminalType": "PC", "upFlow": "256",
+    "useTime": "3661", "userId": 42
+}]"""

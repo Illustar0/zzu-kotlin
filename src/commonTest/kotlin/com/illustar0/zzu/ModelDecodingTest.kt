@@ -163,7 +163,7 @@ class ModelDecodingTest {
     @Test
     fun onlineDeviceConvertsSecondsAndDefaultsTheHostName() {
         val device = ZzuJson.decodeFromString<OnlineDevice>(
-            """{"brasid": "1", "downFlow": "1024", "ip": "10.1.2.3",
+            """{"brasId": "1", "downFlow": "1024", "ip": "10.1.2.3",
                 "loginTime": "2026-10-31T08:30:45+08:00[Asia/Shanghai]", "mac": "001122334455",
                 "sessionId": "sid-1", "terminalType": "PC", "upFlow": "256",
                 "useTime": 3661, "userId": 42}""",
@@ -173,6 +173,9 @@ class ModelDecodingTest {
         assertEquals(SessionId("sid-1"), device.sessionId)
         assertEquals("", device.hostName)
         assertEquals("1", device.brasId)
+        val encoded = ZzuJson.encodeToString(device)
+        assertContains(encoded, "\"brasId\":\"1\"")
+        assertEquals(device, ZzuJson.decodeFromString(encoded))
     }
 
     @Test

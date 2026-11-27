@@ -78,7 +78,7 @@ internal actual suspend fun withMockSelfServiceServer(
                             queryStarted.complete(Unit)
                             runBlocking { resumeQuery.await() }
                         }
-                        200 to "[]"
+                        200 to MOCK_ONLINE_LIST_JSON
                     }
                     "/Self/login/logout" -> 200 to "ok"
                     else -> 404 to "not found"

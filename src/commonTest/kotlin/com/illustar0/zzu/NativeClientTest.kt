@@ -280,12 +280,14 @@ class NativeClientTest {
                 val slowQuery = async(Dispatchers.Default) { service.onlineDevices() }
                 try {
                     withContextTimeout { queryStarted.await() }
-                    assertTrue(withContextTimeout { service.onlineDevices() }.isEmpty())
+                    val fastDevice = withContextTimeout { service.onlineDevices() }.single()
+                    assertEquals("1", fastDevice.brasId)
+                    assertEquals("", fastDevice.hostName)
                     assertFalse(slowQuery.isCompleted)
                 } finally {
                     resumeQuery.complete(Unit)
                 }
-                assertTrue(withContextTimeout { slowQuery.await() }.isEmpty())
+                assertEquals("1", withContextTimeout { slowQuery.await() }.single().brasId)
                 service.logout()
                 assertFalse(service.isLoggedIn())
             }

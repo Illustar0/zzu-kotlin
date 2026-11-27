@@ -107,7 +107,6 @@ public value class SessionId(public val value: String)
 @Serializable
 @Suppress("LongParameterList") // 构造参数与 libzzu 的在线终端 JSON 字段一一对应。
 public class OnlineDevice(
-    @SerialName("brasid")
     public val brasId: String,
     public val downFlow: String,
     public val hostName: String = "",

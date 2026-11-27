@@ -212,7 +212,7 @@ private suspend fun buildSelfServiceResponse(
                 queryStarted.complete(Unit)
                 resumeQuery.await()
             }
-            Triple("200 OK", "", "[]")
+            Triple("200 OK", "", MOCK_ONLINE_LIST_JSON)
         }
         "/Self/login/logout" -> Triple("200 OK", "", "ok")
         else -> Triple("404 Not Found", "", "not found")
