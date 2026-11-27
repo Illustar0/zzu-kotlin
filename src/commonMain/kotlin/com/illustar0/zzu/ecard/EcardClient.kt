@@ -207,6 +207,7 @@ public class EcardClient internal constructor(private val rpc: ZzuRpc) : AutoClo
      *
      * 直接访问学校收银台接口，无需校园卡客户端登录。
      *
+     * @throws ZzuException.InvalidInput [order] 载荷被篡改或不符合收银台约束时。
      * @throws ZzuException.Remote 收银台返回业务错误时。
      * @throws ZzuException.Decode 渠道列表解析失败时。
      * @throws ZzuException.Transport 网络传输失败时。
@@ -219,7 +220,8 @@ public class EcardClient internal constructor(private val rpc: ZzuRpc) : AutoClo
      *
      * [context] 默认上报 [PaymentDevice.ANDROID] 与空 IP。直接访问学校收银台接口，无需校园卡客户端登录。
      *
-     * @throws ZzuException.InvalidInput [PaymentChannel.id] 为空字符串时。
+     * @throws ZzuException.InvalidInput [PaymentChannel.id] 为空字符串、[PaymentContext.payerIp] 不是合法 IP 地址，
+     * 或 [order] 载荷校验失败时。
      * @throws ZzuException.Remote 收银台返回业务错误时。
      * @throws ZzuException.Decode 预支付响应中的跳转地址或表单不符合无凭据 HTTPS 规范，或格式解析失败时。
      * @throws ZzuException.Transport 网络传输失败时。

@@ -200,7 +200,7 @@ public class RechargeOrder internal constructor(internal val wire: JsonObject) {
     /**
      * 生成预选指定支付渠道 [channel] 的学校网页收银台地址，只做本地计算，无需客户端或登录。
      *
-     * @throws com.illustar0.zzu.ZzuException.InvalidInput [PaymentChannel.id] 为空字符串时。
+     * @throws com.illustar0.zzu.ZzuException.InvalidInput [PaymentChannel.id] 为空字符串，或订单载荷被篡改、不符合收银台约束时。
      * @throws com.illustar0.zzu.ZzuException.Decode 订单参数序列化或收银台 URL 校验失败时。
      */
     public fun checkoutUrlFor(channel: PaymentChannel): String = nativeCheckoutUrl(

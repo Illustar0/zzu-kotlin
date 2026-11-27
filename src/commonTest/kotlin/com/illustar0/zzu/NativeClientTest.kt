@@ -9,6 +9,7 @@ import com.illustar0.zzu.eas.EasClient
 import com.illustar0.zzu.eas.Timetable
 import com.illustar0.zzu.ecard.EcardClient
 import com.illustar0.zzu.ecard.PaymentChannel
+import com.illustar0.zzu.ecard.PaymentContext
 import com.illustar0.zzu.ecard.RechargeOrder
 import com.illustar0.zzu.ecard.RoomId
 import com.illustar0.zzu.ecard.TransactionQuery
@@ -173,14 +174,29 @@ class NativeClientTest {
     }
 
     @Test
-    fun checkoutUrlIsComputedLocally() {
+    fun checkoutUrlIsComputedLocally() = runTest {
         val order = ZzuJson.decodeFromString<RechargeOrder>(ORDER_JSON)
+        val channel = PaymentChannel("0106", "支付宝")
 
-        val url = order.checkoutUrlFor(PaymentChannel("0106", "支付宝"))
+        val url = order.checkoutUrlFor(channel)
 
         assertTrue("callPaywayid=0106" in url, url)
         assertFailsWith<ZzuException.InvalidInput> {
             order.checkoutUrlFor(PaymentChannel("", "无效"))
+        }
+
+        val tamperedAmount = ZzuJson.decodeFromString<RechargeOrder>(
+            ORDER_JSON.replace("\"amount\": 10", "\"amount\": 20"),
+        )
+        assertFailsWith<ZzuException.InvalidInput> { tamperedAmount.checkoutUrlFor(channel) }
+        EcardClient(cas).use { ecard ->
+            assertFailsWith<ZzuException.InvalidInput> { ecard.paymentChannels(tamperedAmount) }
+            assertFailsWith<ZzuException.InvalidInput> {
+                ecard.preparePayment(tamperedAmount, channel)
+            }
+            assertFailsWith<ZzuException.InvalidInput> {
+                ecard.preparePayment(order, channel, PaymentContext(payerIp = "not-an-ip"))
+            }
         }
     }
 
