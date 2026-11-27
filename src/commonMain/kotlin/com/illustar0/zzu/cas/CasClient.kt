@@ -198,7 +198,7 @@ public class CasClient internal constructor(
      *
      * 受信任设备登录时无需多因素认证；[isTrusted] 为 `true` 表示信任该设备，为 `false` 表示取消信任。
      *
-     * @throws ZzuException.InvalidInput [deviceId] 为空字符串时。
+     * @throws ZzuException.InvalidInput [deviceId] 为空或仅含空白字符时。
      * @throws ZzuException.Authentication 尚未登录或令牌不可用时（`NOT_AUTHENTICATED` 或 `TOKEN_EXPIRED`）。
      * @throws ZzuException.Remote 服务端拒绝更新设备信任状态时。
      * @throws ZzuException.Decode 响应缺少有效的 `acknowleged` 字段或解析失败时。
@@ -219,7 +219,8 @@ public class CasClient internal constructor(
      * 分页查询当前账号下的历史登录设备与信任状态，需已登录。
      *
      * [page] 从 1 开始，默认为 1；[pageSize] 为 `null` 时使用 [DevicePage.DEFAULT_PAGE_SIZE]（`20`）。
-     * 返回条目的 [LoginDevice.deviceId] 可直接传给 [setDeviceTrust] 更新信任状态。
+     * 桌面或手机浏览器网页登录记录的 [LoginDevice.deviceId] 为 `null`；
+     * 非空的 [LoginDevice.deviceId] 可传给 [setDeviceTrust] 更新信任状态。
      *
      * @throws ZzuException.InvalidInput [page] 小于 1 或 [pageSize] 小于 1 时。
      * @throws ZzuException.Authentication 尚未登录或令牌不可用时（`NOT_AUTHENTICATED` 或 `TOKEN_EXPIRED`）。

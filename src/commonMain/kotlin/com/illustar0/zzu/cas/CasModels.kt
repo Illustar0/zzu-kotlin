@@ -139,21 +139,22 @@ public class PersonalInfo(
 }
 
 /**
- * 当前账号下曾登录过的单台终端设备与免多因素认证信任状态。
+ * 当前账号下曾登录过的单条终端设备或网页会话与免多因素认证信任状态。
  *
- * [deviceId] 属于认证凭据，[toString] 隐藏该字段及 [userAgent]。
- * 各登录时刻须用 [ZzuTimeZone][com.illustar0.zzu.ZzuTimeZone] 换算为当地时间。
+ * 非空的 [deviceId] 属于认证凭据，[toString] 隐藏该字段及 [userAgent]。
+ * 各非空登录时刻须用 [ZzuTimeZone][com.illustar0.zzu.ZzuTimeZone] 换算为当地时间。
  *
  * @property id 个人安全中心设备记录唯一标识。
- * @property deviceId 设备标识，与创建客户端时的 `deviceId` 及 [CasClient.setDeviceTrust] 的入参对应。
+ * @property deviceId 客户端设备标识，与创建客户端时的 `deviceId` 及 [CasClient.setDeviceTrust] 的入参对应；
+ * 桌面或手机浏览器网页登录记录无此标识，为 `null`。
  * @property isTrusted 是否已设为受信任设备；受信任设备登录时无需多因素认证。
  * @property deviceType 终端设备形态类别，如 `"PC"`、`"MOBILE"`。
  * @property os 操作系统标识，如 `"MAC_OS_X"`、`"ANDROID"`。
  * @property browser 浏览器或客户端标识。
  * @property userAgent 客户端上报的完整 `User-Agent` 字符串。
  * @property usedCount 累计登录次数。
- * @property firstUsedTime 首次登录时刻。
- * @property lastUsedTime 最近一次登录时刻。
+ * @property firstUsedTime 首次登录时刻，未记录时为 `null`。
+ * @property lastUsedTime 最近一次登录时刻，未记录时为 `null`。
  * @property previousUsedTime 上一次登录时刻，未记录时为 `null`。
  */
 @Poko
@@ -161,7 +162,7 @@ public class PersonalInfo(
 @Suppress("LongParameterList") // 构造参数与 libzzu 的登录设备记录 JSON 字段一一对应。
 public class LoginDevice(
     public val id: String,
-    public val deviceId: String,
+    public val deviceId: String? = null,
     public val isTrusted: Boolean,
     public val deviceType: String? = null,
     public val os: String? = null,
@@ -169,9 +170,9 @@ public class LoginDevice(
     public val userAgent: String? = null,
     public val usedCount: Int,
     @Serializable(with = ZonedInstantSerializer::class)
-    public val firstUsedTime: Instant,
+    public val firstUsedTime: Instant? = null,
     @Serializable(with = ZonedInstantSerializer::class)
-    public val lastUsedTime: Instant,
+    public val lastUsedTime: Instant? = null,
     @Serializable(with = ZonedInstantSerializer::class)
     public val previousUsedTime: Instant? = null,
 ) {

@@ -223,18 +223,26 @@ class ModelDecodingTest {
     @Test
     fun devicePageDecodesHistoryAndRedactsDeviceCredentials() {
         val page = ZzuJson.decodeFromString<DevicePage>(
-            """{"items": [{
-                "id": "rec-1", "deviceId": "secret-device-id", "isTrusted": true,
-                "deviceType": "MOBILE", "os": "ANDROID", "browser": null,
-                "userAgent": "secret-ua", "usedCount": 5,
-                "firstUsedTime": "2026-10-01T09:00:00+08:00[Asia/Shanghai]",
-                "lastUsedTime": "2026-11-27T12:30:00+08:00[Asia/Shanghai]",
-                "previousUsedTime": null, "upstreamOnly": 1
-            }], "page": 1, "pageSize": 20, "totalItems": 25, "totalPages": 2}""",
+            """{"items": [
+                {
+                    "id": "rec-1", "deviceId": "secret-device-id", "isTrusted": true,
+                    "deviceType": "MOBILE", "os": "ANDROID", "browser": null,
+                    "userAgent": "secret-ua", "usedCount": 5,
+                    "firstUsedTime": "2026-10-01T09:00:00+08:00[Asia/Shanghai]",
+                    "lastUsedTime": "2026-11-27T12:30:00+08:00[Asia/Shanghai]",
+                    "previousUsedTime": null, "upstreamOnly": 1
+                },
+                {
+                    "id": "web-1", "deviceId": null, "isTrusted": false,
+                    "deviceType": "PC", "os": "OTHER", "browser": "UNKNOWN",
+                    "userAgent": null, "usedCount": 0,
+                    "firstUsedTime": null, "lastUsedTime": null, "previousUsedTime": null
+                }
+            ], "page": 1, "pageSize": 20, "totalItems": 25, "totalPages": 2}""",
         )
 
         assertEquals(true, page.hasNext)
-        val device = page.items.single()
+        val (device, webSession) = page.items
         assertEquals("rec-1", device.id)
         assertEquals("secret-device-id", device.deviceId)
         assertEquals(true, device.isTrusted)
@@ -242,10 +250,26 @@ class ModelDecodingTest {
         assertEquals(5, device.usedCount)
         assertEquals(
             LocalDateTime(2026, 11, 27, 12, 30),
-            device.lastUsedTime.toLocalDateTime(ZzuTimeZone),
+            device.lastUsedTime?.toLocalDateTime(ZzuTimeZone),
         )
         assertNull(device.previousUsedTime)
         assertFalse("secret" in device.toString(), "泄露于 $device")
+
+        assertEquals(
+            LoginDevice(
+                id = "web-1",
+                isTrusted = false,
+                deviceType = "PC",
+                os = "OTHER",
+                browser = "UNKNOWN",
+                usedCount = 0,
+            ),
+            webSession,
+        )
+        assertNull(webSession.deviceId)
+        assertNull(webSession.firstUsedTime)
+        assertNull(webSession.lastUsedTime)
+        assertEquals(page, ZzuJson.decodeFromString<DevicePage>(ZzuJson.encodeToString(page)))
     }
 
     @Test
