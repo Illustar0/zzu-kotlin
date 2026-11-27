@@ -1,13 +1,17 @@
 package com.illustar0.zzu.cas
 
+import com.illustar0.zzu.internal.Base64ByteArraySerializer
 import com.illustar0.zzu.internal.ZonedInstantSerializer
 import dev.drewhamilton.poko.Poko
 import kotlin.time.Instant
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+
+private const val HASH_MULTIPLIER: Int = 31
 
 /** 可通过 [CasClient.serviceSsoUrl] 获取单点登录跳转地址的业务系统。 */
 @Poko
@@ -204,4 +208,28 @@ public class DevicePage(
         /** 历史登录设备分页查询的默认每页条数。 */
         public const val DEFAULT_PAGE_SIZE: Int = 20
     }
+}
+
+/**
+ * 当前用户在统一身份认证个人中心的头像图像数据。
+ *
+ * 为避免输出大体积二进制内容与泄露个人照片，[toString] 仅打印 [mediaType] 与字节长度。
+ *
+ * @property mediaType 小写的图像 MIME 媒体类型，如 `"image/png"`、`"image/jpeg"`。
+ * @property bytes 原始图像二进制字节流。
+ */
+@Serializable
+public class Portrait(
+    public val mediaType: String,
+    @SerialName("data")
+    @Serializable(with = Base64ByteArraySerializer::class)
+    public val bytes: ByteArray,
+) {
+    override fun equals(other: Any?): Boolean =
+        other is Portrait && mediaType == other.mediaType && bytes.contentEquals(other.bytes)
+
+    override fun hashCode(): Int =
+        HASH_MULTIPLIER * mediaType.hashCode() + bytes.contentHashCode()
+
+    override fun toString(): String = "Portrait(mediaType=$mediaType, byteCount=${bytes.size})"
 }

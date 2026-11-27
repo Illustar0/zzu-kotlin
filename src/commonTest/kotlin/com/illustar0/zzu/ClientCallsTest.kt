@@ -248,6 +248,20 @@ class ClientCallsTest {
     }
 
     @Test
+    fun casQueriesUserPortraitAndHandlesAbsentAvatar() = runTest {
+        val presentTransport = FakeTransport { """{"mediaType": "image/png", "data": "aGVsbG8="}""" }
+        val absentTransport = FakeTransport { "null" }
+
+        val portrait = CasClient(presentTransport, rpcOver(presentTransport)).portrait()
+        val absent = CasClient(absentTransport, rpcOver(absentTransport)).portrait()
+
+        assertEquals("image/png", portrait?.mediaType)
+        assertEquals("hello", portrait?.bytes?.decodeToString())
+        assertNull(absent)
+        assertEquals("portrait" to null, presentTransport.calls.single())
+    }
+
+    @Test
     fun derivedClientsComeFromTheCasTransport() {
         val transport = FakeTransport()
         val cas = CasClient(transport)

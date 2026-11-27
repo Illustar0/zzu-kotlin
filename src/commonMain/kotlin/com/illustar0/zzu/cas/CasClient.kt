@@ -12,7 +12,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * 统一身份认证（CAS）客户端，负责会话管理、短信多因素认证、设备信任管理、个人信息查询与业务系统单点登录。
+ * 统一身份认证（CAS）客户端，负责会话管理、短信多因素认证、设备信任管理、个人信息与头像查询以及业务系统单点登录。
  *
  * 线程安全，实现 [AutoCloseable]，用完后须调用 [close] 释放原生句柄；关闭后已派生的
  * [EasClient][com.illustar0.zzu.eas.EasClient]、[EcardClient][com.illustar0.zzu.ecard.EcardClient]、
@@ -249,6 +249,17 @@ public class CasClient internal constructor(
      * @throws ZzuException.Decode 个人信息结构不符时。
      */
     public suspend fun userInfo(): PersonalInfo = rpc.fetch("user_info")
+
+    /**
+     * 查询当前用户在个人中心的头像图像，需已登录；当前账号未设置头像时返回 `null`。
+     *
+     * @throws ZzuException.Authentication 尚未登录或令牌不可用时（`NOT_AUTHENTICATED` 或 `TOKEN_EXPIRED`）。
+     * @throws ZzuException.Remote 认证服务返回业务错误状态时。
+     * @throws ZzuException.Decode 响应不是受支持的图像格式或载荷解析失败时。
+     * @throws ZzuException.Transport 网络传输失败时。
+     * @throws ZzuException.Http 服务端返回非成功状态码时。
+     */
+    public suspend fun portrait(): Portrait? = rpc.fetch("portrait")
 
     /**
      * 获取当前账号访问指定业务系统 [service] 的单点登录跳转 URL，需已登录。

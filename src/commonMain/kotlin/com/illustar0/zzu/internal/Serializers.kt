@@ -2,6 +2,7 @@ package com.illustar0.zzu.internal
 
 import com.illustar0.zzu.Decimal
 import com.illustar0.zzu.ZzuTimeZone
+import kotlin.io.encoding.Base64
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -68,5 +69,18 @@ internal object SecondsSerializer : KSerializer<Duration> {
 
     override fun serialize(encoder: Encoder, value: Duration) {
         encoder.encodeLong(value.inWholeSeconds)
+    }
+}
+
+/** 图像载荷在 ABI 上编码为标准 Base64（RFC 4648）字符串。 */
+internal object Base64ByteArraySerializer : KSerializer<ByteArray> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("com.illustar0.zzu.Base64ByteArray", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): ByteArray =
+        Base64.decode(decoder.decodeString().trim())
+
+    override fun serialize(encoder: Encoder, value: ByteArray) {
+        encoder.encodeString(Base64.encode(value))
     }
 }

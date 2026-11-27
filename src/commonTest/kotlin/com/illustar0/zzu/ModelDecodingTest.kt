@@ -3,6 +3,7 @@ package com.illustar0.zzu
 import com.illustar0.zzu.cas.DevicePage
 import com.illustar0.zzu.cas.LoginDevice
 import com.illustar0.zzu.cas.PersonalInfo
+import com.illustar0.zzu.cas.Portrait
 import com.illustar0.zzu.cas.Tokens
 import com.illustar0.zzu.eas.ClassOrigin
 import com.illustar0.zzu.eas.ClassSession
@@ -183,6 +184,20 @@ class ModelDecodingTest {
         )
         assertNull(device.previousUsedTime)
         assertFalse("secret" in device.toString(), "泄露于 $device")
+    }
+
+    @Test
+    fun portraitDecodesBase64BytesAndOmitsRawBytesFromToString() {
+        val portrait = ZzuJson.decodeFromString<Portrait>(
+            """{"mediaType": "image/jpeg", "data": "c2VjcmV0", "upstreamOnly": true}""",
+        )
+
+        assertEquals("image/jpeg", portrait.mediaType)
+        assertEquals("secret", portrait.bytes.decodeToString())
+        val roundTripped = ZzuJson.decodeFromString<Portrait>(ZzuJson.encodeToString(portrait))
+        assertEquals(portrait, roundTripped)
+        assertEquals(portrait.hashCode(), roundTripped.hashCode())
+        assertEquals("Portrait(mediaType=image/jpeg, byteCount=6)", portrait.toString())
     }
 
     @Test

@@ -84,6 +84,9 @@ class NativeClientTest {
 
         assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, failure.kind)
         assertNull(failure.request)
+
+        val portraitFailure = assertFailsWith<ZzuException.Authentication> { cas.portrait() }
+        assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, portraitFailure.kind)
     }
 
     @Test
