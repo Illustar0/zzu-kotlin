@@ -100,7 +100,7 @@ public sealed class ZzuException(
      * 单次操作（含等待内部锁排队）超过 [ZzuClientConfig.timeout]。
      *
      * 对非幂等操作（如 [EcardClient.rechargeEnergy][com.illustar0.zzu.ecard.EcardClient.rechargeEnergy]），
-     * 超时后服务端可能已受理扣款，须先查询余额再决定是否重试。
+     * 超时后服务端可能已受理扣款，须先查询余额或核对账单流水再决定是否重试。
      */
     public class Timeout(
         message: String,

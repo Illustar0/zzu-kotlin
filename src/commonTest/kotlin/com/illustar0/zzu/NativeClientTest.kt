@@ -11,6 +11,7 @@ import com.illustar0.zzu.ecard.EcardClient
 import com.illustar0.zzu.ecard.PaymentChannel
 import com.illustar0.zzu.ecard.RechargeOrder
 import com.illustar0.zzu.ecard.RoomId
+import com.illustar0.zzu.ecard.TransactionQuery
 import com.illustar0.zzu.internal.ZzuJson
 import com.illustar0.zzu.mail.MailClient
 import com.illustar0.zzu.network.PortalClient
@@ -163,6 +164,21 @@ class NativeClientTest {
         assertTrue("callPaywayid=0106" in url, url)
         assertFailsWith<ZzuException.InvalidInput> {
             order.checkoutUrlFor(PaymentChannel("", "无效"))
+        }
+    }
+
+    @Test
+    fun ecardTransactionsValidateDateRangeAndPagination() = runTest {
+        EcardClient(cas).use { ecard ->
+            val valid = TransactionQuery(LocalDate(2026, 11, 1), LocalDate(2026, 11, 10))
+            assertFailsWith<ZzuException.InvalidInput> {
+                ecard.transactions(TransactionQuery(LocalDate(2026, 11, 10), LocalDate(2026, 11, 1)))
+            }
+            assertFailsWith<ZzuException.InvalidInput> { ecard.transactions(valid, page = 0) }
+            assertFailsWith<ZzuException.InvalidInput> { ecard.transactions(valid, pageSize = 0) }
+
+            val failure = assertFailsWith<ZzuException.Authentication> { ecard.transactions(valid) }
+            assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, failure.kind)
         }
     }
 

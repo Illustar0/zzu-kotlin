@@ -2,6 +2,7 @@ package com.illustar0.zzu.ecard
 
 import com.illustar0.zzu.Decimal
 import com.illustar0.zzu.internal.SecondsSerializer
+import com.illustar0.zzu.internal.ZonedInstantSerializer
 import com.illustar0.zzu.internal.ZzuJson
 import com.illustar0.zzu.internal.nativeCheckoutUrl
 import com.illustar0.zzu.internal.nativeRoomIdParse
@@ -9,6 +10,8 @@ import com.illustar0.zzu.internal.putValue
 import dev.drewhamilton.poko.Poko
 import kotlin.jvm.JvmInline
 import kotlin.time.Duration
+import kotlin.time.Instant
+import kotlinx.datetime.LocalDate
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
@@ -77,6 +80,66 @@ public class PaymentCode(
     override fun toString(): String =
         "PaymentCode(balance=$balance, refreshInterval=$refreshInterval)"
 }
+
+/** 校园卡账单流水的交易类别筛选。 */
+@Serializable
+public enum class TransactionKind {
+    /** 消费扣款，如食堂餐饮、商超购物与宿舍购电。 */
+    @SerialName("consumption")
+    CONSUMPTION,
+
+    /** 充值入账，如微信、支付宝或银行卡转账充值。 */
+    @SerialName("recharge")
+    RECHARGE,
+
+    /** 补助发放。 */
+    @SerialName("subsidy")
+    SUBSIDY,
+}
+
+/**
+ * 校园卡账单流水的筛选条件（起止日期均含当日）。
+ *
+ * @property startDate 查询起始公历日期（含）。
+ * @property endDate 查询截止公历日期（含），不得早于 [startDate]。
+ * @property kind 交易类别筛选，`null` 表示查询全部类别（消费、充值与补助）。
+ */
+@Poko
+@Serializable
+public class TransactionQuery(
+    public val startDate: LocalDate,
+    public val endDate: LocalDate,
+    public val kind: TransactionKind? = null,
+) {
+    public companion object {
+        /** 校园卡账单流水分页查询的默认每页条数。 */
+        public const val DEFAULT_PAGE_SIZE: Int = 30
+    }
+}
+
+/**
+ * 校园卡单笔交易账单记录。
+ *
+ * [time] 须用 [ZzuTimeZone][com.illustar0.zzu.ZzuTimeZone] 换算为当地时间。
+ *
+ * @property id 校园卡交易流水号。
+ * @property time 交易发生时刻。
+ * @property amount 带符号精确交易金额，单位为元；消费通常为负数，充值与补助通常为正数。
+ * @property merchantName 交易商户或入账渠道名称。
+ * @property summary 交易摘要说明，如购电房间描述或移动端交易备注。
+ * @property isRefund 是否为退款记录。
+ */
+@Poko
+@Serializable
+public class Transaction(
+    public val id: String,
+    @Serializable(with = ZonedInstantSerializer::class)
+    public val time: Instant,
+    public val amount: Decimal,
+    public val merchantName: String = "",
+    public val summary: String = "",
+    public val isRefund: Boolean = false,
+)
 
 /**
  * 校园卡充值面额与网页收银台配置。

@@ -13,6 +13,8 @@ import com.illustar0.zzu.ecard.PaymentChannel
 import com.illustar0.zzu.ecard.PaymentContext
 import com.illustar0.zzu.ecard.PaymentDevice
 import com.illustar0.zzu.ecard.RechargeOrder
+import com.illustar0.zzu.ecard.TransactionKind
+import com.illustar0.zzu.ecard.TransactionQuery
 import com.illustar0.zzu.internal.ZzuJson
 import com.illustar0.zzu.internal.ZzuRpc
 import com.illustar0.zzu.internal.ZzuTransport
@@ -414,6 +416,40 @@ class ClientCallsTest {
         assertEquals(Decimal.parse("36.50"), paymentCode.balance)
         assertEquals(60_000.milliseconds, paymentCode.refreshInterval)
         assertEquals("payment_code" to null, transport.calls.single())
+    }
+
+    @Test
+    fun ecardQueriesTransactionsWithOptionalKindAndPageSize() = runTest {
+        val transport = FakeTransport { "[]" }
+        val ecard = EcardClient(rpcOver(transport))
+        val start = LocalDate(2026, 11, 1)
+        val end = LocalDate(2026, 11, 27)
+
+        assertEquals(emptyList(), ecard.transactions(TransactionQuery(start, end)))
+        ecard.transactions(
+            TransactionQuery(start, end, TransactionKind.CONSUMPTION),
+            page = 2,
+            pageSize = 15,
+        )
+
+        assertEquals(listOf("transactions", "transactions"), transport.calls.map { it.first })
+        assertEquals(
+            listOf(
+                buildJsonObject {
+                    put("startDate", "2026-11-01")
+                    put("endDate", "2026-11-27")
+                    put("page", 1)
+                },
+                buildJsonObject {
+                    put("startDate", "2026-11-01")
+                    put("endDate", "2026-11-27")
+                    put("kind", "consumption")
+                    put("page", 2)
+                    put("pageSize", 15)
+                },
+            ),
+            transport.calls.map { it.second },
+        )
     }
 
     @Test

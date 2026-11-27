@@ -11,11 +11,11 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /**
- * 校园卡与宿舍电控服务客户端，涵盖余额与在线校园码查询、电控位置检索、电费查询与充值以及校园卡网页充值下单。
+ * 校园卡与宿舍电控服务客户端，涵盖余额、在线校园码、账单流水、电控位置检索、电费查询与充值以及校园卡网页充值下单。
  *
  * 共享 [CasClient] 的统一身份认证会话与操作时限，线程安全，实现 [AutoCloseable]，用完后须调用 [close] 释放句柄，
- * 在途调用不受影响。查询与收银台预支付方法（[isLoggedIn]、[defaultRoom]、[balance]、[paymentCode]、[locations]、
- * [remainingEnergy]、[rechargeConfig]、[paymentChannels]、[preparePayment]）只在读写缓存时短暂持锁，可并发执行；
+ * 在途调用不受影响。查询与收银台预支付方法（[isLoggedIn]、[defaultRoom]、[balance]、[paymentCode]、[transactions]、
+ * [locations]、[remainingEnergy]、[rechargeConfig]、[paymentChannels]、[preparePayment]）只在读写缓存时短暂持锁，可并发执行；
  * [login]、[logout]、[rechargeEnergy] 与 [createRechargeOrder] 互斥同步执行。
  *
  * 客户端不启动后台刷新任务：每次请求前按需检查内部校园卡访问令牌，满 45 分钟或底层 CAS 用户令牌变更时自动换新，
@@ -80,6 +80,35 @@ public class EcardClient internal constructor(private val rpc: ZzuRpc) : AutoClo
     public suspend fun paymentCode(): PaymentCode = rpc.fetch("payment_code")
 
     /**
+     * 分页查询符合 [query] 筛选条件的校园卡账单流水。
+     *
+     * [page] 从 1 开始，默认为 1；[pageSize] 为 `null` 时使用 [TransactionQuery.DEFAULT_PAGE_SIZE]（`30`）。
+     * 上游接口不返回总条数，翻页至返回列表长度小于实际页大小（或为空列表）即表示已到达末页。
+     * [rechargeEnergy] 超时或被取消导致扣款状态未知时，可通过本方法核对最新电控扣款记录。
+     *
+     * @throws ZzuException.InvalidInput [page] 小于 1、[pageSize] 小于 1，
+     * 或 [TransactionQuery.startDate] 晚于 [TransactionQuery.endDate] 时。
+     * @throws ZzuException.Authentication 尚未登录或底层 CAS 令牌不可用时。
+     * @throws ZzuException.Remote 远端返回业务错误时。
+     * @throws ZzuException.Decode 流水字段解析失败时。
+     * @throws ZzuException.Transport 网络传输失败时。
+     */
+    public suspend fun transactions(
+        query: TransactionQuery,
+        page: Int = 1,
+        pageSize: Int? = null,
+    ): List<Transaction> = rpc.fetch(
+        "transactions",
+        buildJsonObject {
+            put("startDate", query.startDate.toString())
+            put("endDate", query.endDate.toString())
+            query.kind?.let { putValue("kind", it) }
+            put("page", page)
+            pageSize?.let { put("pageSize", it) }
+        },
+    )
+
+    /**
      * 按上级位置编码 [parent] 逐级检索电控位置目录，结果按 `id` 升序排列。
      *
      * [parent] 支持以下四种层级格式（其中 `area`、`building`、`level` 各段均非空且不含 `-`）：
@@ -115,7 +144,7 @@ public class EcardClient internal constructor(private val rpc: ZzuRpc) : AutoClo
      * 并在收到加密响应时用该 SM4 密钥解密。
      *
      * 本操作**非幂等**：协程被取消、超时（[ZzuException.Timeout]），或收到 [ZzuException.Decode]（响应缺少 `success` 确认字段）、
-     * [ZzuException.Crypto]（加密响应解密失败）时，服务端都可能已受理扣款。此时须先查询 [balance]，再决定是否重试。
+     * [ZzuException.Crypto]（加密响应解密失败）时，服务端都可能已受理扣款。此时须先查询 [balance] 或核对 [transactions]，再决定是否重试。
      *
      * @throws ZzuException.InvalidInput [amount] 小于等于 0 或 [paymentPassword] 为空字符串时。
      * @throws ZzuException.Authentication 尚未登录或令牌不可用时。

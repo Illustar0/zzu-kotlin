@@ -31,6 +31,7 @@ import com.illustar0.zzu.ecard.FormField
 import com.illustar0.zzu.ecard.PaymentAction
 import com.illustar0.zzu.ecard.PaymentCode
 import com.illustar0.zzu.ecard.RechargeOrder
+import com.illustar0.zzu.ecard.Transaction
 import com.illustar0.zzu.internal.DecimalSerializer
 import com.illustar0.zzu.internal.ZzuJson
 import com.illustar0.zzu.network.OnlineDevice
@@ -238,6 +239,24 @@ class ModelDecodingTest {
         assertEquals(Decimal.parse("90071992547409.9300"), amount)
         assertEquals(4, amount.scale)
         assertEquals("90071992547409.9300", amount.toPlainString())
+    }
+
+    @Test
+    fun transactionDecodesSignedDecimalAmountAndTimestamp() {
+        val transaction = ZzuJson.decodeFromString<Transaction>(
+            """{"id": "tx-1", "time": "2026-11-27T12:15:30+08:00[Asia/Shanghai]",
+                "amount": "-12.50", "merchantName": "主校区电控", "summary": "购电",
+                "isRefund": false, "upstreamOnly": 1}""",
+        )
+
+        assertEquals("tx-1", transaction.id)
+        assertEquals(Decimal.parse("-12.50"), transaction.amount)
+        assertEquals(
+            LocalDateTime(2026, 11, 27, 12, 15, 30),
+            transaction.time.toLocalDateTime(ZzuTimeZone),
+        )
+        assertEquals("主校区电控", transaction.merchantName)
+        assertFalse(transaction.isRefund)
     }
 
     @Test
