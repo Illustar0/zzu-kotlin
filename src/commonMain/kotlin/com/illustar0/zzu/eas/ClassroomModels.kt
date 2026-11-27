@@ -165,6 +165,12 @@ public value class RoomActivityType(public val value: String) {
 
         /** 教室借用。 */
         public val ROOM_BORROW: RoomActivityType = RoomActivityType("room_borrow")
+
+        /** 考试安排。 */
+        public val EXAM: RoomActivityType = RoomActivityType("exam")
+
+        /** 调课占用。 */
+        public val SCHEDULE_CHANGE: RoomActivityType = RoomActivityType("schedule_change")
     }
 }
 

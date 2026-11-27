@@ -366,6 +366,18 @@ class ModelDecodingTest {
         val room = page.items.single()
         assertEquals(RoomActivityType.ROOM_BORROW, room.occupations.single().activityType)
         assertEquals(
+            listOf(
+                RoomActivityType.LESSON,
+                RoomActivityType.EXPERIMENT,
+                RoomActivityType.EXAM,
+                RoomActivityType.SCHEDULE_CHANGE,
+                RoomActivityType("custom_event"),
+            ),
+            ZzuJson.decodeFromString<List<RoomActivityType>>(
+                """["lesson", "experiment", "exam", "schedule_change", "custom_event"]""",
+            ),
+        )
+        assertEquals(
             true,
             room.isFreeBetween(
                 Instant.parse("2026-11-24T00:00:00Z"),
