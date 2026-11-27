@@ -256,6 +256,9 @@ class NativeClientTest {
             ),
         )
 
+        val unfolded = calendar.replace("\r\n ", "")
+        assertEquals(2, unfolded.split("\r\nPRODID:").size, unfolded)
+        assertTrue("\r\nPRODID:-//libzzu//Teaching Schedule//CN\r\n" in unfolded, unfolded)
         assertTrue("BEGIN:VEVENT" in calendar, calendar)
         assertTrue("DTSTART:20261026T000000Z" in calendar, calendar)
         assertTrue("程序设计" in calendar, calendar)
