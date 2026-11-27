@@ -13,6 +13,7 @@ import com.illustar0.zzu.ecard.PaymentChannel
 import com.illustar0.zzu.ecard.PaymentContext
 import com.illustar0.zzu.ecard.PaymentDevice
 import com.illustar0.zzu.ecard.RechargeOrder
+import com.illustar0.zzu.ecard.RoomId
 import com.illustar0.zzu.ecard.TransactionKind
 import com.illustar0.zzu.ecard.TransactionQuery
 import com.illustar0.zzu.internal.ZzuJson
@@ -450,6 +451,24 @@ class ClientCallsTest {
             ),
             transport.calls.map { it.second },
         )
+    }
+
+    @Test
+    fun ecardQueriesEnergyAccountWithOptionalRoom() = runTest {
+        val transport = FakeTransport {
+            """{"room": "1-2--3-301", "remainingEnergy": 42.5}"""
+        }
+        val ecard = EcardClient(rpcOver(transport))
+
+        val account = ecard.energyAccount()
+        ecard.energyAccount(RoomId("1-2--3-301"))
+
+        assertEquals(RoomId("1-2--3-301"), account.room)
+        assertEquals(42.5, account.remainingEnergy)
+        assertEquals(listOf("energy_account", "energy_account"), transport.calls.map { it.first })
+        val (defaultParams, explicitParams) = transport.calls.map { it.second!! }
+        assertEquals(JsonNull, defaultParams["room"])
+        assertEquals(JsonPrimitive("1-2--3-301"), explicitParams["room"])
     }
 
     @Test

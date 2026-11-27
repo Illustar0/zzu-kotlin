@@ -179,6 +179,8 @@ class NativeClientTest {
 
             val failure = assertFailsWith<ZzuException.Authentication> { ecard.transactions(valid) }
             assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, failure.kind)
+            val energyFailure = assertFailsWith<ZzuException.Authentication> { ecard.energyAccount() }
+            assertEquals(AuthenticationErrorKind.NOT_AUTHENTICATED, energyFailure.kind)
         }
     }
 

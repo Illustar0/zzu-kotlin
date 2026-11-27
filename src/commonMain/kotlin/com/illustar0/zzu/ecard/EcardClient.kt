@@ -15,8 +15,8 @@ import kotlinx.serialization.json.put
  *
  * 共享 [CasClient] 的统一身份认证会话与操作时限，线程安全，实现 [AutoCloseable]，用完后须调用 [close] 释放句柄，
  * 在途调用不受影响。查询与收银台预支付方法（[isLoggedIn]、[defaultRoom]、[balance]、[paymentCode]、[transactions]、
- * [locations]、[remainingEnergy]、[rechargeConfig]、[paymentChannels]、[preparePayment]）只在读写缓存时短暂持锁，可并发执行；
- * [login]、[logout]、[rechargeEnergy] 与 [createRechargeOrder] 互斥同步执行。
+ * [locations]、[energyAccount]、[remainingEnergy]、[rechargeConfig]、[paymentChannels]、[preparePayment]）
+ * 只在读写缓存时短暂持锁，可并发执行；[login]、[logout]、[rechargeEnergy] 与 [createRechargeOrder] 互斥同步执行。
  *
  * 客户端不启动后台刷新任务：每次请求前按需检查内部校园卡访问令牌，满 45 分钟或底层 CAS 用户令牌变更时自动换新，
  * 并发请求会合并复用同一次换新结果；若此时 CAS 令牌已不可用，则直接抛出 [ZzuException.Authentication]。
@@ -127,7 +127,23 @@ public class EcardClient internal constructor(private val rpc: ZzuRpc) : AutoClo
         rpc.fetch("locations", buildJsonObject { put("parent", parent) })
 
     /**
+     * 查询 [room] 的电控账户详情；[room] 为 `null` 时取 [defaultRoom]。
+     *
+     * 除剩余电量外，一并返回电价单价、电费余额、校园卡余额快照与表计状态；
+     * [room] 为 `null` 或与已缓存的默认房间一致时，同时附带完整房间名称。
+     *
+     * @throws ZzuException.Authentication 尚未登录或令牌不可用时。
+     * @throws ZzuException.Remote 获取默认房间或电费账户接口返回业务错误时。
+     * @throws ZzuException.Decode 电量或金额字段解析失败时。
+     * @throws ZzuException.Transport 网络传输失败时。
+     */
+    public suspend fun energyAccount(room: RoomId? = null): EnergyAccount =
+        rpc.fetch("energy_account", buildJsonObject { put("room", room?.value) })
+
+    /**
      * 查询 [room] 的剩余电量，单位为度；[room] 为 `null` 时取 [defaultRoom]。
+     *
+     * 若同时需要电价单价、房间名称或表计状态，请改用 [energyAccount]。
      *
      * @throws ZzuException.Authentication 尚未登录或令牌不可用时。
      * @throws ZzuException.Remote 获取默认房间或电费账户接口返回业务错误时。

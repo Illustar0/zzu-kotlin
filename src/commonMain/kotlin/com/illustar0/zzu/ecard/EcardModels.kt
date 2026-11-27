@@ -60,6 +60,30 @@ public class Location(
 )
 
 /**
+ * 宿舍电控账户详情快照。
+ *
+ * @property room 本次查询对应的规范宿舍房间号；调用未传房间时为当前账号绑定的默认房间。
+ * @property roomName 宿舍房间完整位置名称；查询默认房间或传入房间命中已缓存的默认房间时返回，直接查询其他未缓存房间时为 `null`。
+ * @property remainingEnergy 当前剩余电量，单位为度（kWh）。
+ * @property unitPrice 电价单价，单位为元/度；服务端未返回时为 `null`。
+ * @property electricityBalance 按金额计费房间的电费账户余额，单位为元；按电量计费的宿舍通常为 `null`。
+ * @property cardBalance 查询时刻关联的校园卡账户余额快照，单位为元；服务端未返回时为 `null`。
+ * @property status 电控表计运行状态描述，如 `"正常"`；服务端未返回时为 `null`。
+ */
+@Poko
+@Serializable
+@Suppress("LongParameterList") // 构造参数与 libzzu 的电控账户详情 JSON 字段一一对应。
+public class EnergyAccount(
+    public val room: RoomId,
+    public val roomName: String? = null,
+    public val remainingEnergy: Double,
+    public val unitPrice: Decimal? = null,
+    public val electricityBalance: Decimal? = null,
+    public val cardBalance: Decimal? = null,
+    public val status: String? = null,
+)
+
+/**
  * 在线校园码（动态付款码与通行码）载荷及自动刷新配置。
  *
  * [code] 为实时支付与门禁凭据，切勿写入日志；[toString] 已隐藏该字段。

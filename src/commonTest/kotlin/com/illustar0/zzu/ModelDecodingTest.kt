@@ -27,10 +27,12 @@ import com.illustar0.zzu.eas.StudyType
 import com.illustar0.zzu.eas.Timetable
 import com.illustar0.zzu.eas.Transcript
 import com.illustar0.zzu.eas.locateDate
+import com.illustar0.zzu.ecard.EnergyAccount
 import com.illustar0.zzu.ecard.FormField
 import com.illustar0.zzu.ecard.PaymentAction
 import com.illustar0.zzu.ecard.PaymentCode
 import com.illustar0.zzu.ecard.RechargeOrder
+import com.illustar0.zzu.ecard.RoomId
 import com.illustar0.zzu.ecard.Transaction
 import com.illustar0.zzu.internal.DecimalSerializer
 import com.illustar0.zzu.internal.ZzuJson
@@ -257,6 +259,23 @@ class ModelDecodingTest {
         )
         assertEquals("主校区电控", transaction.merchantName)
         assertFalse(transaction.isRefund)
+    }
+
+    @Test
+    fun energyAccountDecodesRoomIdAndOptionalDecimals() {
+        val account = ZzuJson.decodeFromString<EnergyAccount>(
+            """{"room": "1-2--3-301", "roomName": "主校区松园2号楼301", "remainingEnergy": 88.6,
+                "unitPrice": "0.56", "electricityBalance": null, "cardBalance": "35.20",
+                "status": "正常", "upstreamOnly": true}""",
+        )
+
+        assertEquals(RoomId("1-2--3-301"), account.room)
+        assertEquals("主校区松园2号楼301", account.roomName)
+        assertEquals(88.6, account.remainingEnergy)
+        assertEquals(Decimal.parse("0.56"), account.unitPrice)
+        assertNull(account.electricityBalance)
+        assertEquals(Decimal.parse("35.20"), account.cardBalance)
+        assertEquals("正常", account.status)
     }
 
     @Test
